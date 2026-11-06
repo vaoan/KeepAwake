@@ -41,6 +41,16 @@ class SessionScannerTest {
         }
     }
 
+    @Test void shellIsWorking() throws IOException {
+        write("1.json", json(1, "interactive", "shell"));
+        assertEquals(SessionStatus.WORKING, scanner(true).scan().sessions().get(0).status());
+    }
+
+    @Test void waitingIsWaiting() throws IOException {
+        write("1.json", json(1, "interactive", "waiting"));
+        assertEquals(SessionStatus.WAITING, scanner(true).scan().sessions().get(0).status());
+    }
+
     @Test void otherOrMissingStatusIsUnknown() throws IOException {
         write("1.json", json(1, "interactive", "paused"));
         write("2.json", json(2, "interactive", null));

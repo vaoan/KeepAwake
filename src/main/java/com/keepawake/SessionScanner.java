@@ -96,9 +96,12 @@ public class SessionScanner {
     }
 
     private static SessionStatus status(String s) {
-        if ("busy".equals(s)) return SessionStatus.WORKING;
-        if ("idle".equals(s)) return SessionStatus.WAITING;
-        return SessionStatus.UNKNOWN;
+        if (s == null) return SessionStatus.UNKNOWN;
+        return switch (s) {
+            case "busy", "shell" -> SessionStatus.WORKING;
+            case "idle", "waiting" -> SessionStatus.WAITING;
+            default -> SessionStatus.UNKNOWN;
+        };
     }
 
     public static ProcessProbe systemProbe() {

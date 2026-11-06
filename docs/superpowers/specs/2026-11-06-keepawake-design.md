@@ -44,8 +44,10 @@ Evitar que el Mac se suspenda o se bloquee mientras Claude trabaja, y devolverle
 ## Riesgos que hay que probar
 
 - Separar click izquierdo y derecho en macOS (lo primero).
-- Si una sesión marca `idle` mientras tiene tareas en segundo plano.
-- Qué estado usa una sesión cuando espera un permiso.
+- Resultados observados en Claude Code 2.1.311 (el campo `status` no está documentado):
+  - Con tareas en segundo plano, la sesión marca `shell` cuando el turno terminó pero sigue un shell en segundo plano (también el de un subagente), no `idle`.
+  - Cuando espera un permiso, marca `waiting` con `waitingFor: "permission prompt"`.
+  - Correspondencia: `busy` y `shell` son TRABAJANDO; `idle` y `waiting` son ESPERANDO; cualquier otro valor o ausente es DESCONOCIDO (mantiene despierto con advertencia).
 
 ## Construcción
 
