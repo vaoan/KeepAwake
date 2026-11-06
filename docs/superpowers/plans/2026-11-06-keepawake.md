@@ -61,6 +61,8 @@ Expected: the two clicks print different values. Record the result in this plan.
 
 - [ ] **Step 5: Delete `ClickSpike.java`**
 
+**Click test result (2026-11-06, real clicks):** with no `PopupMenu` attached, left and right click can be told apart. Left click reports `button=1`; right click reports `button=3` and `isPopupTrigger()==true` on press. `mouseClicked` did **not** fire on every left click, while `pressed` and `released` always did, so Task 5 must not use `mouseClicked`.
+
 ### Task 2: Session reading and tracking
 
 **Files:**
