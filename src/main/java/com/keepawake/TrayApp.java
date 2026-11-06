@@ -34,6 +34,8 @@ final class TrayApp {
     private static final String TOO_LARGE_MINUTES = "El máximo es 10080 minutos (una semana)";
 
     private final Controller controller;
+    private final Caffeinator caffeinator = Caffeinator.system();
+    private final ClickGate gate = new ClickGate();
     private final TrayIcon trayIcon;
     private final Timer timer;
     private JDialog anchor;
@@ -41,7 +43,7 @@ final class TrayApp {
     TrayApp() {
         Path dir = Path.of(System.getProperty("user.home"), ".claude", "sessions");
         SessionScanner scanner = new SessionScanner(dir, SessionScanner.systemProbe());
-        controller = new Controller(Caffeinator.system(), scanner::scan, this::refresh);
+        controller = new Controller(caffeinator, scanner::scan, this::refresh);
         trayIcon = new TrayIcon(Icons.off(), "KeepAwake");
         trayIcon.setImageAutoSize(true);
         timer = new Timer(TICK_MILLIS, e -> {
@@ -54,12 +56,12 @@ final class TrayApp {
         trayIcon.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                handle(e);
+                act(gate.pressed(e.isPopupTrigger()), e);
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                handle(e);
+                act(gate.released(e.isPopupTrigger(), e.getButton()), e);
             }
         });
         SystemTray.getSystemTray().add(trayIcon);
@@ -67,16 +69,19 @@ final class TrayApp {
         timer.start();
     }
 
+    /** Safe from any thread (JVM shutdown hook): only stops the synchronized Caffeinator, not the Controller. */
     void shutdown() {
-        controller.shutdown();
+        caffeinator.stop();
     }
 
-    private void handle(MouseEvent e) {
-        if (e.isPopupTrigger()) {
-            showMenu(e.getPoint(), e);
-        } else if (e.getID() == MouseEvent.MOUSE_RELEASED && e.getButton() == MouseEvent.BUTTON1) {
-            controller.toggle(Instant.now());
-            refresh();
+    private void act(ClickGate.Action action, MouseEvent e) {
+        switch (action) {
+            case SHOW_MENU -> showMenu(e);
+            case TOGGLE -> {
+                controller.toggle(Instant.now());
+                refresh();
+            }
+            case NONE -> { }
         }
     }
 
@@ -123,7 +128,7 @@ final class TrayApp {
 
     // ---- menu ----
 
-    private void showMenu(Point ignored, MouseEvent e) {
+    private void showMenu(MouseEvent e) {
         hideAnchor();
         controller.tick(Instant.now());
         refresh();
