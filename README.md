@@ -9,7 +9,7 @@ JAVA_HOME=$(brew --prefix openjdk@21) mvn package
 ./run.sh
 ```
 
-No aparece en el Dock, solo el icono en la barra de menús. `./run.sh` corre en primer plano: si cierras la terminal, se cierra la app. Para dejarla independiente:
+No aparece en el Dock, solo el icono en la barra de menús. El icono es un ayudante nativo que `./run.sh` compila con `swiftc` (Xcode Command Line Tools: `xcode-select --install`); se recompila cuando cambia `native/KeepAwakeBar.swift`. Sin `swiftc`, o si la compilación falla, la app usa el icono de bandeja de Java. La primera vez, macOS pide permiso para las notificaciones, a nombre de KeepAwake. `./run.sh` corre en primer plano: si cierras la terminal, se cierra la app. Para dejarla independiente:
 
 ```
 nohup ./run.sh >/dev/null 2>&1 &

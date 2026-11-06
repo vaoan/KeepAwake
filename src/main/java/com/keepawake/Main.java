@@ -9,7 +9,8 @@ public final class Main {
 
     public static void main(String[] args) {
         System.setProperty("apple.awt.UIElement", "true");
-        if (!SystemTray.isSupported()) {
+        boolean helper = System.getProperty("keepawake.bar") != null;
+        if (!helper && !SystemTray.isSupported()) {
             JOptionPane.showMessageDialog(null, "Esta plataforma no admite icono en la barra de menús");
             System.exit(1);
             return;

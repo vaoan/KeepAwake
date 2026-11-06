@@ -1,6 +1,8 @@
 package com.keepawake;
 
 import java.awt.AWTException;
+import java.awt.Desktop;
+import java.awt.EventQueue;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsEnvironment;
@@ -11,11 +13,13 @@ import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
-import java.util.Optional;
+import java.util.List;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
@@ -26,7 +30,10 @@ import javax.swing.Timer;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 
-/** Tray icon and menu. All Controller calls happen on the EDT. */
+/**
+ * Menu bar item. Normally the native helper (NativeBar); if it is missing or dies, the AWT TrayIcon with a
+ * JPopupMenu. Both render {@link MenuModel}. All Controller calls happen on the EDT.
+ */
 final class TrayApp {
     private static final int TICK_MILLIS = 3000;
     private static final int MAX_CUSTOM_MINUTES = 10080;
@@ -36,16 +43,16 @@ final class TrayApp {
     private final Controller controller;
     private final Caffeinator caffeinator = Caffeinator.system();
     private final ClickGate gate = new ClickGate();
-    private final TrayIcon trayIcon;
     private final Timer timer;
+    private TrayIcon trayIcon;
+    private NativeBar bar;
+    private boolean quitting;
     private JDialog anchor;
 
     TrayApp() {
         Path dir = Path.of(System.getProperty("user.home"), ".claude", "sessions");
         SessionScanner scanner = new SessionScanner(dir, SessionScanner.systemProbe());
         controller = new Controller(caffeinator, scanner::scan, this::refresh);
-        trayIcon = new TrayIcon(Icons.off(), "KeepAwake");
-        trayIcon.setImageAutoSize(true);
         timer = new Timer(TICK_MILLIS, e -> tickAndNotify());
     }
 
@@ -54,16 +61,57 @@ final class TrayApp {
         controller.tick(Instant.now());
         refresh();
         if (controller.consumeAutoOffNotice()) {
-            trayIcon.displayMessage("KeepAwake", "Claude terminó. El Mac vuelve a su comportamiento normal.",
-                    TrayIcon.MessageType.INFO);
+            notifyUser("Claude terminó. El Mac vuelve a su comportamiento normal.", TrayIcon.MessageType.INFO);
         }
         String err = controller.lastError();
         if (err != null && !err.equals(errBefore)) {
-            trayIcon.displayMessage("KeepAwake", err, TrayIcon.MessageType.ERROR);
+            notifyUser(err, TrayIcon.MessageType.ERROR);
+        }
+    }
+
+    /** The helper's notification when it is alive and macOS allows it (or has not said); else the TrayIcon's. */
+    private void notifyUser(String message, TrayIcon.MessageType type) {
+        if (bar != null && bar.isAlive() && !Boolean.FALSE.equals(bar.notificationsAllowed())) {
+            bar.notify("KeepAwake", message);
+        } else if (trayIcon != null) {
+            trayIcon.displayMessage("KeepAwake", message, type);
         }
     }
 
     void start() throws AWTException {
+        String helper = System.getProperty("keepawake.bar");
+        if (helper != null) {
+            bar = NativeBar.start(Path.of(helper), this::toggle, this::refresh,
+                    () -> EventQueue.invokeLater(this::helperDied));
+        }
+        if (bar == null) {
+            addAwtTray();
+        }
+        refresh();
+        timer.start();
+    }
+
+    /** The helper exited by itself: bring back the AWT TrayIcon. */
+    private void helperDied() {
+        if (quitting || bar == null) {
+            return;
+        }
+        bar = null;
+        try {
+            addAwtTray();
+        } catch (AWTException | UnsupportedOperationException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+        refresh();
+    }
+
+    private void addAwtTray() throws AWTException {
+        if (!SystemTray.isSupported()) {
+            throw new UnsupportedOperationException("Esta plataforma no admite icono en la barra de menús");
+        }
+        trayIcon = new TrayIcon(Icons.off(), "KeepAwake");
+        trayIcon.setImageAutoSize(true);
         trayIcon.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -76,8 +124,6 @@ final class TrayApp {
             }
         });
         SystemTray.getSystemTray().add(trayIcon);
-        refresh();
-        timer.start();
     }
 
     /** Safe from any thread (JVM shutdown hook): only stops the synchronized Caffeinator, not the Controller. */
@@ -85,29 +131,51 @@ final class TrayApp {
         caffeinator.stop();
     }
 
+    private void toggle() {
+        controller.toggle(Instant.now());
+        refresh();
+    }
+
     private void act(ClickGate.Action action, MouseEvent e) {
         switch (action) {
             case SHOW_MENU -> showMenu(e);
-            case TOGGLE -> {
-                controller.toggle(Instant.now());
-                refresh();
-            }
+            case TOGGLE -> toggle();
             case NONE -> { }
         }
     }
 
     private void refresh() {
         Instant now = Instant.now();
-        trayIcon.setImage(controller.isOn()
-                ? (controller.hasWarning() ? Icons.warning() : Icons.on())
-                : Icons.off());
         Snapshot snap = controller.snapshot();
-        trayIcon.setToolTip(tooltip(statusLine(now), count(snap, SessionStatus.WORKING, SessionStatus.BACKGROUND),
-                count(snap, SessionStatus.WAITING), count(snap, SessionStatus.UNKNOWN), controller.lastError()));
+        String tip = tooltip(MenuModel.statusLine(controller, now),
+                MenuModel.count(snap, SessionStatus.WORKING, SessionStatus.BACKGROUND),
+                MenuModel.count(snap, SessionStatus.WAITING), MenuModel.count(snap, SessionStatus.UNKNOWN),
+                controller.lastError());
+        boolean warn = controller.hasWarning();
+        if (bar != null) {
+            bar.setIcon(controller.isOn() ? (warn ? Icons.warning2x() : Icons.on2x()) : Icons.off2x());
+            bar.setTooltip(tip);
+            bar.syncMenu(model(now));
+        } else if (trayIcon != null) {
+            trayIcon.setImage(controller.isOn() ? (warn ? Icons.warning() : Icons.on()) : Icons.off());
+            trayIcon.setToolTip(tip);
+        }
     }
 
-    private static long count(Snapshot snap, SessionStatus... statuses) {
-        return snap.sessions().stream().filter(s -> java.util.Arrays.asList(statuses).contains(s.status())).count();
+    private List<MenuModel.Entry> model(Instant now) {
+        return MenuModel.build(controller, now, this::customTimer, this::quit);
+    }
+
+    private void quit() {
+        quitting = true;
+        controller.shutdown();
+        if (bar != null) {
+            bar.close();
+        }
+        if (trayIcon != null) {
+            SystemTray.getSystemTray().remove(trayIcon);
+        }
+        System.exit(0);
     }
 
     /** Status line plus session counts (when any session exists) plus the last error (when present). */
@@ -119,39 +187,6 @@ final class TrayApp {
         }
         if (error != null) sb.append(" · ").append(error);
         return sb.toString();
-    }
-
-    private String statusLine(Instant now) {
-        if (!controller.isOn()) {
-            return "Inactivo";
-        }
-        Optional<Duration> remaining = soonest(now);
-        return remaining.map(d -> "Activo · apaga en " + formatDuration(d)).orElse("Activo");
-    }
-
-    private Optional<Duration> soonest(Instant now) {
-        Optional<Duration> fromDeadline = controller.deadline().map(d -> Duration.between(now, d));
-        Optional<Duration> fromAuto = controller.autoOffRemaining(now);
-        Optional<Duration> best = fromDeadline;
-        if (fromAuto.isPresent() && (best.isEmpty() || fromAuto.get().compareTo(best.get()) < 0)) {
-            best = fromAuto;
-        }
-        return best.map(d -> d.isNegative() ? Duration.ZERO : d);
-    }
-
-    /** "1 h 20 min", "5 min", "45 s". Rounds up to the next whole minute from one minute on. */
-    static String formatDuration(Duration d) {
-        long seconds = Math.max(0, d.getSeconds() + (d.getNano() > 0 ? 1 : 0));
-        if (seconds < 60) {
-            return seconds + " s";
-        }
-        long minutes = (seconds + 59) / 60;
-        long h = minutes / 60;
-        long m = minutes % 60;
-        if (h == 0) {
-            return m + " min";
-        }
-        return m == 0 ? h + " h" : h + " h " + m + " min";
     }
 
     // ---- menu ----
@@ -213,104 +248,97 @@ final class TrayApp {
     }
 
     private JPopupMenu buildMenu() {
-        Instant now = Instant.now();
         JPopupMenu menu = new JPopupMenu();
-        menu.add(disabled(statusLine(now)));
-
-        Snapshot snap = controller.snapshot();
-        long working = count(snap, SessionStatus.WORKING, SessionStatus.BACKGROUND);
-        long waiting = count(snap, SessionStatus.WAITING);
-        long unknown = count(snap, SessionStatus.UNKNOWN);
-        menu.add(disabled(sessionsLine(working, waiting, unknown)));
-        for (Session s : snap.sessions()) {
-            menu.add(disabled("    " + s.name() + " — " + statusText(s.status())));
-        }
-        if (controller.hasWarning()) {
-            menu.add(disabled(controller.isOn()
-                    ? "No se pudo leer el estado de Claude; se mantiene activo"
-                    : "No se pudo leer el estado de Claude"));
-        }
-        if (controller.lastError() != null) {
-            menu.add(disabled(controller.lastError()));
-        }
-        menu.addSeparator();
-
-        JMenu timerMenu = new JMenu("Apagar tras");
-        timerMenu.add(item("Sin límite", () -> controller.clearTimer()));
-        timerMenu.add(item("30 minutos", () -> setTimer(30)));
-        timerMenu.add(item("1 hora", () -> setTimer(60)));
-        timerMenu.add(item("2 horas", () -> setTimer(120)));
-        timerMenu.add(item("4 horas", () -> setTimer(240)));
-        timerMenu.add(item("Personalizado…", this::customTimer));
-        menu.add(timerMenu);
-
-        JCheckBoxMenuItem auto = new JCheckBoxMenuItem("Apagar cuando Claude termine", controller.isAutoOff());
-        auto.addActionListener(e -> {
-            controller.setAutoOff(auto.isSelected(), Instant.now());
-            refresh();
-        });
-        menu.add(auto);
-        menu.addSeparator();
-        menu.add(item("Salir", () -> {
-            controller.shutdown();
-            SystemTray.getSystemTray().remove(trayIcon);
-            System.exit(0);
-        }));
+        addAll(menu, model(Instant.now()));
         return menu;
     }
 
-    static String sessionsLine(long working, long waiting, long unknown) {
-        String s = "Sesiones: " + working + " trabajando, " + waiting + " en espera";
-        return unknown > 0 ? s + ", " + unknown + " desconocidas" : s;
-    }
-
-    private static String statusText(SessionStatus st) {
-        return switch (st) {
-            case WORKING -> "trabajando";
-            case BACKGROUND -> "shell en segundo plano";
-            case WAITING -> "en espera";
-            case UNKNOWN -> "desconocido";
-        };
-    }
-
-    private static JMenuItem disabled(String text) {
-        JMenuItem i = new JMenuItem(text);
-        i.setEnabled(false);
-        return i;
-    }
-
-    private JMenuItem item(String text, Runnable action) {
-        JMenuItem i = new JMenuItem(text);
-        i.addActionListener(e -> {
-            action.run();
-            refresh();
-        });
-        return i;
-    }
-
-    private void setTimer(long minutes) {
-        controller.setTimer(Duration.ofMinutes(minutes), Instant.now());
+    private void addAll(JComponent parent, List<MenuModel.Entry> entries) {
+        for (MenuModel.Entry e : entries) {
+            if (e.isSeparator()) {
+                if (parent instanceof JPopupMenu p) {
+                    p.addSeparator();
+                } else {
+                    ((JMenu) parent).addSeparator();
+                }
+                continue;
+            }
+            JMenuItem i;
+            if (e.isSubmenu()) {
+                JMenu sub = new JMenu(e.label());
+                addAll(sub, e.children());
+                i = sub;
+            } else if (e.checked() != null) {
+                i = new JCheckBoxMenuItem(e.label(), e.checked());
+            } else {
+                i = new JMenuItem(e.label());
+            }
+            i.setEnabled(e.enabled());
+            if (e.action() != null) {
+                i.addActionListener(ev -> {
+                    e.action().run();
+                    refresh();
+                });
+            }
+            parent.add(i);
+        }
     }
 
     private void customTimer() {
-        Object input = JOptionPane.showInputDialog(null, "Minutos:", "Apagar tras", JOptionPane.PLAIN_MESSAGE,
-                null, null, "60");
-        if (input == null) {
+        JOptionPane pane = new JOptionPane("Minutos:", JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
+        pane.setWantsInput(true);
+        pane.setInitialSelectionValue("60");
+        showInFront(pane, "Apagar tras");
+        Object input = pane.getInputValue();
+        if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue()) || input == null
+                || input == JOptionPane.UNINITIALIZED_VALUE) {
             return;
         }
         long minutes;
         try {
             minutes = Long.parseLong(input.toString().trim());
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(null, INVALID_MINUTES);
+            message(INVALID_MINUTES);
             return;
         }
         if (minutes <= 0) {
-            JOptionPane.showMessageDialog(null, INVALID_MINUTES);
+            message(INVALID_MINUTES);
         } else if (minutes > MAX_CUSTOM_MINUTES) {
-            JOptionPane.showMessageDialog(null, TOO_LARGE_MINUTES);
+            message(TOO_LARGE_MINUTES);
         } else {
-            setTimer(minutes);
+            MenuModel.setTimer(controller, minutes);
+        }
+    }
+
+    private void message(String text) {
+        showInFront(new JOptionPane(text, JOptionPane.INFORMATION_MESSAGE), "KeepAwake");
+    }
+
+    /**
+     * Shows the pane in a modal, always-on-top dialog and asks macOS to bring this process to the front: when the
+     * native menu fires, another app is frontmost and a plain dialog would open behind it, unable to take typing.
+     */
+    private static void showInFront(JOptionPane pane, String title) {
+        JDialog dialog = pane.createDialog(null, title);
+        dialog.setAlwaysOnTop(true);
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                requestForeground();
+                dialog.toFront();
+            }
+        });
+        requestForeground();
+        dialog.setVisible(true);
+        dialog.dispose();
+    }
+
+    private static void requestForeground() {
+        if (Desktop.isDesktopSupported()) {
+            Desktop desktop = Desktop.getDesktop();
+            if (desktop.isSupported(Desktop.Action.APP_REQUEST_FOREGROUND)) {
+                desktop.requestForeground(true);
+            }
         }
     }
 }

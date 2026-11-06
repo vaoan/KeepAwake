@@ -19,6 +19,7 @@ Evitar que el Mac se suspenda o se bloquee mientras Claude trabaja, y devolverle
 
 - **Click izquierdo:** prende o apaga, y el icono muestra el estado.
 - **Click derecho:** muestra el estado y las sesiones activas, y permite elegir el tiempo, activar "Apagar cuando Claude termine" o salir.
+- **Ayudante nativo:** el icono lo dibuja `native/KeepAwakeBar.swift` (compilado con `swiftc`, notificaciones como "KeepAwake"); sin él, la app usa el icono de bandeja de Java.
 - **Si se apaga solo:** la app sigue en la barra de menú, lista para volver a prenderse. (Decisión del implementador.)
 
 ## Mantener activo
