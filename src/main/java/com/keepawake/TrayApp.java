@@ -47,6 +47,7 @@ final class TrayApp {
     private TrayIcon trayIcon;
     private NativeBar bar;
     private boolean quitting;
+    private boolean customTimerOpen;
     private JDialog anchor;
 
     TrayApp() {
@@ -61,20 +62,23 @@ final class TrayApp {
         controller.tick(Instant.now());
         refresh();
         if (controller.consumeAutoOffNotice()) {
-            notifyUser("Claude terminó. El Mac vuelve a su comportamiento normal.", TrayIcon.MessageType.INFO);
+            notifyUser("Claude terminó. El Mac vuelve a su comportamiento normal.");
         }
         String err = controller.lastError();
         if (err != null && !err.equals(errBefore)) {
-            notifyUser(err, TrayIcon.MessageType.ERROR);
+            notifyUser(err);
         }
     }
 
-    /** The helper's notification when it is alive and macOS allows it (or has not said); else the TrayIcon's. */
-    private void notifyUser(String message, TrayIcon.MessageType type) {
+    /**
+     * The helper's notification when it is alive and macOS allows it (or has not said yet); otherwise a script
+     * notification. (AWT's displayMessage is dropped by macOS for a plain java process.)
+     */
+    private void notifyUser(String message) {
         if (bar != null && bar.isAlive() && !Boolean.FALSE.equals(bar.notificationsAllowed())) {
             bar.notify("KeepAwake", message);
-        } else if (trayIcon != null) {
-            trayIcon.displayMessage("KeepAwake", message, type);
+        } else {
+            ScriptNotification.post("KeepAwake", message);
         }
     }
 
@@ -285,6 +289,18 @@ final class TrayApp {
     }
 
     private void customTimer() {
+        if (customTimerOpen) {
+            return; // a second click while the dialog's nested event loop runs must not stack another
+        }
+        customTimerOpen = true;
+        try {
+            askCustomTimer();
+        } finally {
+            customTimerOpen = false;
+        }
+    }
+
+    private void askCustomTimer() {
         JOptionPane pane = new JOptionPane("Minutos:", JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
         pane.setWantsInput(true);
         pane.setInitialSelectionValue("60");

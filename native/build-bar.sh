@@ -7,6 +7,11 @@
 set -e
 cd "$(dirname "$0")"
 OUT="${1:-$HOME/Library/Caches/keepawake-build/KeepAwakeBar.app}"
+# Built beside the target and moved into place on success, so a failed rebuild keeps the working helper.
+FINAL="$OUT"
+mkdir -p "$(dirname "$FINAL")"
+OUT="$FINAL.new.$$"
+trap 'rm -rf "$OUT"' EXIT
 rm -rf "$OUT"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources"
 swiftc -O KeepAwakeBar.swift -o "$OUT/Contents/MacOS/KeepAwakeBar"
@@ -30,4 +35,6 @@ cat > "$OUT/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 codesign --force --deep -s - "$OUT" 2>/dev/null || true
-echo "$OUT/Contents/MacOS/KeepAwakeBar"
+rm -rf "$FINAL"
+mv "$OUT" "$FINAL"
+echo "$FINAL/Contents/MacOS/KeepAwakeBar"

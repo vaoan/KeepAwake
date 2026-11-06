@@ -9,7 +9,7 @@ JAVA_HOME=$(brew --prefix openjdk@21) mvn package
 ./run.sh
 ```
 
-No aparece en el Dock, solo el icono en la barra de menús. El icono es un ayudante nativo que `./run.sh` compila con `swiftc` (Xcode Command Line Tools: `xcode-select --install`); se recompila cuando cambia `native/KeepAwakeBar.swift`. Sin `swiftc`, o si la compilación falla, la app usa el icono de bandeja de Java. La primera vez, macOS pide permiso para las notificaciones, a nombre de KeepAwake. `./run.sh` corre en primer plano: si cierras la terminal, se cierra la app. Para dejarla independiente:
+No aparece en el Dock, solo el icono en la barra de menús. El icono es un ayudante nativo que `./run.sh` compila con `swiftc` (Xcode Command Line Tools: `xcode-select --install`); se recompila cuando cambia `native/KeepAwakeBar.swift`. Sin `swiftc`, o si la compilación falla, la app usa el icono de bandeja de Java. La primera vez, macOS pide permiso para las notificaciones, a nombre de KeepAwake. Si las notificaciones están denegadas para KeepAwake, usa una notificación de script de macOS. `./run.sh` corre en primer plano: si cierras la terminal, se cierra la app. Para dejarla independiente:
 
 ```
 nohup ./run.sh >/dev/null 2>&1 &
@@ -21,7 +21,7 @@ No ejecutes `mvn package` mientras la app está abierta; sal primero (menú > "S
 
 - La app arranca apagada y no hace nada hasta que hagas clic.
 - **Clic izquierdo**: enciende o apaga. Mientras está encendida mantiene el Mac y la pantalla despiertos, sin importar las sesiones.
-- **Clic derecho**: abre el menú con el estado, las sesiones, el temporizador "Apagar tras", la opción "Apagar cuando Claude termine" y "Salir".
+- **Clic derecho** (o Ctrl+clic): abre el menú con el estado, las sesiones, el temporizador "Apagar tras", la opción "Apagar cuando Claude termine" y "Salir".
 
 ## Apagado automático
 

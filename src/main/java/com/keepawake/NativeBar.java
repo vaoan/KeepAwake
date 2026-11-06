@@ -26,7 +26,7 @@ final class NativeBar {
     private final Process process;
     private final Writer out;
     private String lastMenu = "";
-    private volatile List<MenuModel.Entry> lastModel = List.of();
+    private final Models models = new Models();
     private BufferedImage lastIcon;
     private String lastTip;
     private volatile boolean alive = true;
@@ -104,23 +104,22 @@ final class NativeBar {
 
     /** Sends the menu if anything changed since the last time, and remembers it for clicks. Call on the EDT. */
     void syncMenu(List<MenuModel.Entry> model) {
-        String snapshot = snapshot(model);
-        if (snapshot.equals(lastMenu)) return;
-        lastMenu = snapshot;
-        lastModel = MenuModel.flatten(model);
-        send(snapshot);
+        String text = snapshot(model, 0);
+        if (text.equals(lastMenu)) return;
+        lastMenu = text;
+        send(snapshot(model, models.add(MenuModel.flatten(model))));
     }
 
     // ---- protocol (pure) ----
 
     /**
-     * "menu N", then N lines in pre-order: "item tag enabled checked label" (checked -1 none, 0, 1), "sep",
+     * "menu GEN N", then N lines in pre-order: "item tag enabled checked label" (checked -1 none, 0, 1), "sep",
      * "sub label" followed by its children and "endsub". Tags are indices of {@link MenuModel#flatten}.
      */
-    static String snapshot(List<MenuModel.Entry> model) {
+    static String snapshot(List<MenuModel.Entry> model, int generation) {
         StringBuilder body = new StringBuilder();
         int lines = write(model, 0, body);
-        return "menu\t" + lines + "\n" + body;
+        return "menu\t" + generation + "\t" + lines + "\n" + body;
     }
 
     private static int write(List<MenuModel.Entry> entries, int firstTag, StringBuilder sb) {
@@ -163,13 +162,45 @@ final class NativeBar {
         return e;
     }
 
-    /** The tag of a "click" line, or -1. */
-    static int parseClick(String line) {
-        if (!line.startsWith("click\t")) return -1;
+    /** {generation, tag} of a "click gen tag" line, or null. */
+    static int[] parseClick(String line) {
+        String[] p = line.split("\t");
+        if (p.length != 3 || !p[0].equals("click")) return null;
         try {
-            return Integer.parseInt(line.substring(6).trim());
+            return new int[] {Integer.parseInt(p[1].trim()), Integer.parseInt(p[2].trim())};
         } catch (NumberFormatException e) {
-            return -1;
+            return null;
+        }
+    }
+
+    /**
+     * The menus Java has sent, by generation. A click carries the generation of the row the person saw, and runs that
+     * generation's action or nothing. Keeps the one the helper reports showing (it may hold a newer menu back while
+     * its menu is open) and the latest; a click on a generation drops the older ones. EDT only.
+     */
+    static final class Models {
+        private final java.util.Map<Integer, List<MenuModel.Entry>> byGeneration = new java.util.HashMap<>();
+        private int latest;
+        private int shown;
+
+        int add(List<MenuModel.Entry> flat) {
+            int generation = ++latest;
+            byGeneration.put(generation, flat);
+            byGeneration.keySet().removeIf(g -> g != generation && g != shown);
+            return generation;
+        }
+
+        /** The helper now displays this generation: older ones can no longer be clicked. */
+        void shown(int generation) {
+            shown = Math.max(shown, generation);
+            byGeneration.keySet().removeIf(g -> g < shown);
+        }
+
+        MenuModel.Entry resolve(int generation, int tag) {
+            List<MenuModel.Entry> flat = byGeneration.get(generation);
+            MenuModel.Entry e = flat == null ? null : lookup(flat, tag);
+            if (e != null) shown(generation);
+            return e;
         }
     }
 
@@ -187,10 +218,20 @@ final class NativeBar {
                     EventQueue.invokeLater(onToggle);
                 } else if (line.startsWith("notify-auth\t")) {
                     notificationsAllowed = line.endsWith("1");
+                } else if (line.startsWith("notify-error\t")) {
+                    System.err.println("KeepAwake: la notificación falló: " + line.substring(13));
+                } else if (line.startsWith("shown\t")) {
+                    try {
+                        int generation = Integer.parseInt(line.substring(6).trim());
+                        EventQueue.invokeLater(() -> models.shown(generation));
+                    } catch (NumberFormatException ignored) {
+                        // Not a generation.
+                    }
                 } else if (line.startsWith("click\t")) {
-                    int tag = parseClick(line);
+                    int[] click = parseClick(line);
+                    if (click == null) continue;
                     EventQueue.invokeLater(() -> {
-                        MenuModel.Entry e = lookup(lastModel, tag);
+                        MenuModel.Entry e = models.resolve(click[0], click[1]);
                         if (e == null) return;
                         e.action().run();
                         afterAction.run();

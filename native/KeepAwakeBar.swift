@@ -2,11 +2,13 @@
 // margin on each side). KeepAwake starts it and drives it through stdin, one tab-separated command per line:
 //   icon <base64 png>     44×44 px, shown at 22×22 pt (2x)
 //   tip <text>            tooltip
-//   menu <n>              followed by n lines, each "item <tag> <enabled 0|1> <checked -1|0|1> <label>", "sep",
+//   menu <gen> <n>        a menu with generation number gen, followed by n lines, each "item <tag> <enabled 0|1> <checked -1|0|1> <label>", "sep",
 //                         "sub <label>" (opens a submenu: the lines up to its "endsub" are its items) or "endsub".
 //                         Submenus nest. n counts every line, "sub" and "endsub" included.
 //   notify <title> <body> a system notification (Notification Center, Do Not Disturb…)
-// It writes to stdout: "click <tag>" when a menu item is chosen, "toggle" on a left click on the icon,
+// It writes to stdout: "click <gen> <tag>" when a menu item is chosen (gen is the generation of the menu that row
+// belonged to when it was shown, so the app runs the action of the row the person saw), "shown <gen>" when it starts
+// displaying a menu, "toggle" on a left click on the icon,
 // "notify-auth <1|0>" when notifications become allowed or not (also later), and exits when stdin closes (the app quit or died).
 // Left click toggles; right click (or control-click) opens the menu.
 // Notifications need it to run from its bundle (KeepAwakeBar.app, built by native/build-bar.sh): that's what macOS
@@ -114,6 +116,11 @@ final class Bar: NSObject, NSMenuDelegate {
     let menu = NSMenu()
     private var expected = 0
     private var incoming: [[String]] = []
+    private var incomingGen = 0
+    private var isOpen = false
+    private var shownGen = 0
+    /** A menu of a different shape that arrived while the menu was open: applied when it closes. */
+    private var held: (gen: Int, nodes: [Node])?
 
     override init() {
         super.init()
@@ -132,8 +139,9 @@ final class Bar: NSObject, NSMenuDelegate {
     @objc func clicked(_ sender: Any?) {
         guard let event = NSApp.currentEvent else { return }
         if event.type == .rightMouseDown || (event.type == .leftMouseUp && event.modifierFlags.contains(.control)) {
+            guard !menu.items.isEmpty else { return }
             item.menu = menu
-            item.button?.performClick(nil)
+            item.button?.performClick(nil) // menuDidClose clears item.menu
         } else if event.type == .leftMouseUp {
             emit("toggle")
         }
@@ -149,7 +157,8 @@ final class Bar: NSObject, NSMenuDelegate {
         case "tip":
             item.button?.toolTip = parts.count > 1 ? parts[1] : nil
         case "menu":
-            expected = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
+            incomingGen = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
+            expected = parts.count > 2 ? Int(parts[2]) ?? 0 : 0
             incoming = []
             if expected == 0 { apply() }
         case "item", "sep", "sub", "endsub":
@@ -165,13 +174,29 @@ final class Bar: NSObject, NSMenuDelegate {
     }
 
     private func apply() {
-        update(menu, to: parseNodes(incoming))
+        let nodes = parseNodes(incoming)
         incoming = []
         expected = 0
+        // While the menu is open only same-shape updates (in place); a different shape would move rows under the
+        // pointer and remove the item that owns an open submenu, so the latest one waits for the close.
+        if isOpen && !sameShape(menu, nodes) {
+            held = (incomingGen, nodes)
+            return
+        }
+        held = nil
+        show(nodes, gen: incomingGen)
+    }
+
+    private func show(_ nodes: [Node], gen: Int) {
+        update(menu, to: nodes, gen: gen)
+        if gen != shownGen {
+            shownGen = gen
+            emit("shown\t\(gen)")
+        }
     }
 
     /** Same shape (recursively) as the open menu: update in place (safe while it is showing); otherwise rebuild. */
-    private func update(_ m: NSMenu, to nodes: [Node]) {
+    private func update(_ m: NSMenu, to nodes: [Node], gen: Int) {
         if !sameShape(m, nodes) {
             m.removeAllItems()
             for n in nodes {
@@ -196,12 +221,13 @@ final class Bar: NSObject, NSMenuDelegate {
             case let .item(tag, enabled, checked, label):
                 mi.target = self
                 mi.tag = tag
+                mi.representedObject = gen // the generation this row belongs to, read when it is chosen
                 mi.isEnabled = enabled
                 mi.state = checked ? .on : .off
                 mi.title = label
             case let .sub(label, children):
                 mi.title = label
-                if let sub = mi.submenu { update(sub, to: children) }
+                if let sub = mi.submenu { update(sub, to: children, gen: gen) }
             }
         }
     }
@@ -217,12 +243,25 @@ final class Bar: NSObject, NSMenuDelegate {
         }
     }
 
+    func menuWillOpen(_ menu: NSMenu) {
+        if menu === self.menu { isOpen = true }
+    }
+
     func menuDidClose(_ menu: NSMenu) {
-        if menu === self.menu { item.menu = nil }
+        guard menu === self.menu else { return }
+        isOpen = false
+        item.menu = nil
+        // Not now: the chosen item's action is sent after this, and must still find its row.
+        RunLoop.main.perform(inModes: [.common]) {
+            if !self.isOpen, let h = self.held {
+                self.held = nil
+                self.show(h.nodes, gen: h.gen)
+            }
+        }
     }
 
     @objc func pick(_ sender: NSMenuItem) {
-        emit("click\t\(sender.tag)")
+        emit("click\t\((sender.representedObject as? Int) ?? shownGen)\t\(sender.tag)")
     }
 }
 
@@ -238,6 +277,6 @@ Thread {
         RunLoop.main.perform(inModes: [.common, .eventTracking]) { bar.handle(line) }
         CFRunLoopWakeUp(CFRunLoopGetMain())
     }
-    DispatchQueue.main.async { exit(0) }
+    exit(0)
 }.start()
 app.run()
