@@ -46,10 +46,21 @@ final class TrayApp {
         controller = new Controller(caffeinator, scanner::scan, this::refresh);
         trayIcon = new TrayIcon(Icons.off(), "KeepAwake");
         trayIcon.setImageAutoSize(true);
-        timer = new Timer(TICK_MILLIS, e -> {
-            controller.tick(Instant.now());
-            refresh();
-        });
+        timer = new Timer(TICK_MILLIS, e -> tickAndNotify());
+    }
+
+    private void tickAndNotify() {
+        String errBefore = controller.lastError();
+        controller.tick(Instant.now());
+        refresh();
+        if (controller.consumeAutoOffNotice()) {
+            trayIcon.displayMessage("KeepAwake", "Claude terminó. El Mac vuelve a su comportamiento normal.",
+                    TrayIcon.MessageType.INFO);
+        }
+        String err = controller.lastError();
+        if (err != null && !err.equals(errBefore)) {
+            trayIcon.displayMessage("KeepAwake", err, TrayIcon.MessageType.ERROR);
+        }
     }
 
     void start() throws AWTException {
@@ -90,7 +101,24 @@ final class TrayApp {
         trayIcon.setImage(controller.isOn()
                 ? (controller.hasWarning() ? Icons.warning() : Icons.on())
                 : Icons.off());
-        trayIcon.setToolTip(statusLine(now));
+        Snapshot snap = controller.snapshot();
+        trayIcon.setToolTip(tooltip(statusLine(now), count(snap, SessionStatus.WORKING, SessionStatus.BACKGROUND),
+                count(snap, SessionStatus.WAITING), count(snap, SessionStatus.UNKNOWN), controller.lastError()));
+    }
+
+    private static long count(Snapshot snap, SessionStatus... statuses) {
+        return snap.sessions().stream().filter(s -> java.util.Arrays.asList(statuses).contains(s.status())).count();
+    }
+
+    /** Status line plus session counts (when any session exists) plus the last error (when present). */
+    static String tooltip(String statusLine, long working, long waiting, long unknown, String error) {
+        StringBuilder sb = new StringBuilder(statusLine);
+        if (working + waiting + unknown > 0) {
+            sb.append(" · ").append(working).append(" trabajando, ").append(waiting).append(" en espera");
+            if (unknown > 0) sb.append(", ").append(unknown).append(" desconocidas");
+        }
+        if (error != null) sb.append(" · ").append(error);
+        return sb.toString();
     }
 
     private String statusLine(Instant now) {
@@ -130,8 +158,7 @@ final class TrayApp {
 
     private void showMenu(MouseEvent e) {
         hideAnchor();
-        controller.tick(Instant.now());
-        refresh();
+        tickAndNotify();
         JPopupMenu menu = buildMenu();
         Dimension size = menu.getPreferredSize();
         Point p = new Point(e.getXOnScreen(), e.getYOnScreen());
@@ -191,15 +218,17 @@ final class TrayApp {
         menu.add(disabled(statusLine(now)));
 
         Snapshot snap = controller.snapshot();
-        long working = snap.sessions().stream().filter(s -> s.status() == SessionStatus.WORKING).count();
-        long waiting = snap.sessions().stream().filter(s -> s.status() == SessionStatus.WAITING).count();
-        long unknown = snap.sessions().stream().filter(s -> s.status() == SessionStatus.UNKNOWN).count();
+        long working = count(snap, SessionStatus.WORKING, SessionStatus.BACKGROUND);
+        long waiting = count(snap, SessionStatus.WAITING);
+        long unknown = count(snap, SessionStatus.UNKNOWN);
         menu.add(disabled(sessionsLine(working, waiting, unknown)));
         for (Session s : snap.sessions()) {
             menu.add(disabled("    " + s.name() + " — " + statusText(s.status())));
         }
         if (controller.hasWarning()) {
-            menu.add(disabled("No se pudo leer el estado de Claude; se mantiene activo"));
+            menu.add(disabled(controller.isOn()
+                    ? "No se pudo leer el estado de Claude; se mantiene activo"
+                    : "No se pudo leer el estado de Claude"));
         }
         if (controller.lastError() != null) {
             menu.add(disabled(controller.lastError()));
@@ -238,6 +267,7 @@ final class TrayApp {
     private static String statusText(SessionStatus st) {
         return switch (st) {
             case WORKING -> "trabajando";
+            case BACKGROUND -> "shell en segundo plano";
             case WAITING -> "en espera";
             case UNKNOWN -> "desconocido";
         };

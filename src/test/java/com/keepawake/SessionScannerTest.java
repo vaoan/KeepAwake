@@ -41,9 +41,9 @@ class SessionScannerTest {
         }
     }
 
-    @Test void shellIsWorking() throws IOException {
+    @Test void shellIsBackground() throws IOException {
         write("1.json", json(1, "interactive", "shell"));
-        assertEquals(SessionStatus.WORKING, scanner(true).scan().sessions().get(0).status());
+        assertEquals(SessionStatus.BACKGROUND, scanner(true).scan().sessions().get(0).status());
     }
 
     @Test void waitingIsWaiting() throws IOException {
@@ -87,6 +87,20 @@ class SessionScannerTest {
 
     @Test void nonInteractiveIsIgnored() throws IOException {
         write("1.json", json(1, "sdk", "busy"));
+        assertTrue(scanner(true).scan().sessions().isEmpty());
+    }
+
+    @Test void bgIsCounted() throws IOException {
+        write("1.json", json(1, "bg", "busy"));
+        List<Session> s = scanner(true).scan().sessions();
+        assertEquals(1, s.size());
+        assertEquals(SessionStatus.WORKING, s.get(0).status());
+    }
+
+    @Test void daemonKindsAreIgnored() throws IOException {
+        write("1.json", json(1, "daemon", "busy"));
+        write("2.json", json(2, "daemon-worker", "busy"));
+        write("3.json", json(3, "sdk", "busy"));
         assertTrue(scanner(true).scan().sessions().isEmpty());
     }
 

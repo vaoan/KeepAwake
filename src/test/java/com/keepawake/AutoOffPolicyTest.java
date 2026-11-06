@@ -20,6 +20,16 @@ class AutoOffPolicyTest {
     }
 
     @Test
+    void backgroundBlocksCountdown() {
+        AutoOffPolicy p = new AutoOffPolicy();
+        Snapshot b = snap(s(1, SessionStatus.BACKGROUND));
+        assertTrue(b.hasWorking());
+        assertFalse(p.shouldTurnOff(b, T0));
+        assertFalse(p.shouldTurnOff(b, T0.plusSeconds(600)));
+        assertTrue(p.remaining(T0.plusSeconds(600)).isEmpty());
+    }
+
+    @Test
     void allWaitingForTwoMinutesTurnsOff() {
         AutoOffPolicy p = new AutoOffPolicy();
         Snapshot w = snap(s(1, SessionStatus.WAITING));

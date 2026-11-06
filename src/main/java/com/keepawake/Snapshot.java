@@ -9,7 +9,7 @@ public record Snapshot(List<Session> sessions, boolean readable) {
     }
 
     public boolean hasWorking() {
-        return sessions.stream().anyMatch(s -> s.status() == SessionStatus.WORKING);
+        return sessions.stream().anyMatch(s -> s.status() == SessionStatus.WORKING || s.status() == SessionStatus.BACKGROUND);
     }
 
     public boolean hasUnknown() {

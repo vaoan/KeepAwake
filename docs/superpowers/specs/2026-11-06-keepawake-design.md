@@ -31,19 +31,20 @@ Evitar que el Mac se suspenda o se bloquee mientras Claude trabaja, y devolverle
 - Cada 3 segundos relee `~/.claude/sessions/*.json`.
 - Cualquier sesión nueva entra sola.
 - Una sesión sale si su archivo desaparece, su proceso muere o ese PID ya pertenece a otro proceso.
-- Solo cuenta las sesiones `interactive`: los procesos de plugins y las ejecuciones `claude -p` quedan fuera. (Decisión del implementador.)
+- Cuentan las sesiones `interactive` y `bg`; el resto, incluidas las ejecuciones `claude -p` y los procesos de plugins, queda fuera. (Decisión del implementador.)
 
 ## Apagado automático
 
-- Se apaga si todas las sesiones siguen en `idle`, o no queda ninguna, durante 2 minutos seguidos. Cualquier `busy` reinicia la cuenta.
+- Se apaga si todas las sesiones siguen en espera (`idle`, `waiting`), o no queda ninguna, durante 2 minutos seguidos. Cualquier sesión trabajando (`busy`, `shell`) reinicia la cuenta.
+- No se vuelve a encender sola cuando Claude retoma el trabajo, y avisa con una notificación al apagarse.
 - Al activar la opción, también se apaga si ya estaban todas en espera, aunque no haya visto trabajar a ninguna. (Decisión del implementador.)
 - Una sesión nueva sin usar cuenta como en espera.
 - Con un estado desconocido o ilegible, el PC sigue activo y el icono muestra un aviso.
 - El temporizador puede combinarse con esta opción y gana lo que ocurra primero. También sirve de respaldo si una sesión se queda colgada en `busy`.
 
-## Riesgos que hay que probar
+## Resultados de las pruebas
 
-- Separar click izquierdo y derecho en macOS (lo primero).
+- Click izquierdo y derecho en macOS: se separan bien. El izquierdo prende o apaga y el derecho abre el menú; un Ctrl-click abre el menú sin alternar el estado (lo resuelve `ClickGate`).
 - Resultados observados en Claude Code 2.1.311 (el campo `status` no está documentado):
   - Con tareas en segundo plano, la sesión marca `shell` cuando el turno terminó pero sigue un shell en segundo plano (también el de un subagente), no `idle`.
   - Cuando espera un permiso, marca `waiting` con `waitingFor: "permission prompt"`.

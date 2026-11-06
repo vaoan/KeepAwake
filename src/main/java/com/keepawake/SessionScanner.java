@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.regex.Pattern;
 
-/** Reads Claude Code session files from a directory and reports the live interactive ones. */
+/** Reads Claude Code session files from a directory and reports the live interactive and bg ones. */
 public class SessionScanner {
     private static final Pattern FILE = Pattern.compile("^(\\d+)\\.json$");
     private static final long PID_REUSE_TOLERANCE_MILLIS = 5 * 60 * 1000L;
@@ -63,7 +63,7 @@ public class SessionScanner {
         }
 
         String kind = string(obj, "kind");
-        if (kind != null && !kind.equals("interactive")) return null;
+        if (kind != null && !kind.equals("interactive") && !kind.equals("bg")) return null;
 
         OptionalLong startedAt = OptionalLong.empty();
         JsonElement sa = obj.get("startedAt");
@@ -98,7 +98,8 @@ public class SessionScanner {
     private static SessionStatus status(String s) {
         if (s == null) return SessionStatus.UNKNOWN;
         return switch (s) {
-            case "busy", "shell" -> SessionStatus.WORKING;
+            case "busy" -> SessionStatus.WORKING;
+            case "shell" -> SessionStatus.BACKGROUND;
             case "idle", "waiting" -> SessionStatus.WAITING;
             default -> SessionStatus.UNKNOWN;
         };

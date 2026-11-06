@@ -56,6 +56,14 @@ class ControllerTest {
         c = new Controller(awake, () -> snap, () -> changes++);
     }
 
+    /** Ticks at 30 s steps strictly after {@code from}, ending with a tick at from+untilSeconds. */
+    void tickEvery30s(Instant from, int untilSeconds) {
+        for (int t = 0; t < untilSeconds; t += 30) {
+            c.tick(from.plusSeconds(t));
+        }
+        c.tick(from.plusSeconds(untilSeconds));
+    }
+
     @Test
     void toggleStartsAndStops() {
         c.toggle(T0);
@@ -106,7 +114,8 @@ class ControllerTest {
     void autoOffTurnsOffAfterGrace() {
         c.setAutoOff(true, T0);
         c.toggle(T0);
-        c.tick(T0);
+        tickEvery30s(T0, 119);
+        assertTrue(c.isOn());
         c.tick(T0.plusSeconds(120));
         assertFalse(c.isOn());
         assertTrue(c.isAutoOff());
@@ -228,5 +237,75 @@ class ControllerTest {
         c.toggle(T0);
         c.shutdown();
         assertFalse(awake.running);
+    }
+
+    @Test
+    void gapBetweenTicksRestartsGrace() {
+        c.setAutoOff(true, T0);
+        c.toggle(T0);
+        c.tick(T0);
+        Instant wake = T0.plus(Duration.ofHours(1));
+        c.tick(wake);
+        assertTrue(c.isOn());
+        // regular ticks after the wake-up
+        for (int t = 30; t < 119; t += 30) c.tick(wake.plusSeconds(t));
+        c.tick(wake.plusSeconds(119));
+        assertTrue(c.isOn());
+        c.tick(wake.plusSeconds(120));
+        assertFalse(c.isOn());
+    }
+
+    @Test
+    void deadlinePassedDuringSleepStillFires() {
+        c.setTimer(Duration.ofMinutes(10), T0);
+        c.tick(T0);
+        c.tick(T0.plus(Duration.ofHours(1)));
+        assertFalse(c.isOn());
+    }
+
+    @Test
+    void throwingScanIsUnreadableAndTimerStillFires() {
+        boolean[] fail = {false};
+        c = new Controller(awake, () -> {
+            if (fail[0]) throw new IllegalStateException("boom");
+            return snap;
+        }, () -> changes++);
+        c.setTimer(Duration.ofMinutes(10), T0);
+        fail[0] = true;
+        c.tick(T0.plusSeconds(1));
+        assertTrue(c.isOn());
+        assertFalse(c.snapshot().readable());
+        assertTrue(c.hasWarning());
+        c.tick(T0.plus(Duration.ofMinutes(10)));
+        assertFalse(c.isOn());
+    }
+
+    @Test
+    void autoOffNoticeIsSetOnceByPolicy() {
+        assertFalse(c.consumeAutoOffNotice());
+        c.setAutoOff(true, T0);
+        c.toggle(T0);
+        tickEvery30s(T0, 120);
+        assertFalse(c.isOn());
+        assertTrue(c.consumeAutoOffNotice());
+        assertFalse(c.consumeAutoOffNotice());
+    }
+
+    @Test
+    void autoOffNoticeNotSetByTimerToggleOrDeath() {
+        c.setTimer(Duration.ofMinutes(1), T0);
+        c.tick(T0.plusSeconds(60));
+        assertFalse(c.isOn());
+        assertFalse(c.consumeAutoOffNotice());
+
+        c.toggle(T0.plusSeconds(61));
+        c.toggle(T0.plusSeconds(62));
+        assertFalse(c.consumeAutoOffNotice());
+
+        c.toggle(T0.plusSeconds(63));
+        awake.running = false;
+        c.tick(T0.plusSeconds(64));
+        assertFalse(c.isOn());
+        assertFalse(c.consumeAutoOffNotice());
     }
 }
