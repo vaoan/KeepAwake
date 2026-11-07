@@ -17,6 +17,14 @@ nohup ./run.sh >/dev/null 2>&1 &
 
 No ejecutes `mvn package` mientras la app está abierta; sal primero (menú > "Salir").
 
+## Instalar (abrir al iniciar sesión)
+
+```
+./install.sh
+```
+
+Compila, copia la app a `~/Library/Application Support/KeepAwake`, la registra como LaunchAgent (`~/Library/LaunchAgents/com.keepawake.plist`) y la abre ya. Se abre en cada inicio de sesión y se reinicia si falla, pero no tras "Salir". Vuelve a ejecutarlo para actualizar. Para quitarla: `./uninstall.sh`.
+
 ## Uso
 
 - La app arranca apagada y no hace nada hasta que hagas clic.
