@@ -47,8 +47,8 @@ class MenuModelTest {
     @Test
     void offWithoutSessions() {
         List<MenuModel.Entry> m = build();
-        assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-", "Apagar tras",
-                "Apagar cuando Claude termine", "-", "Salir"), labels(m));
+        assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-",
+                "Apagar tras: Sin límite", "Apagar cuando Claude termine", "-", "Salir"), labels(m));
         assertFalse(m.get(0).enabled());
         assertFalse(m.get(1).enabled());
     }
@@ -110,6 +110,63 @@ class MenuModelTest {
         assertTrue(c.deadline().isEmpty());
     }
 
+    List<Boolean> timerChecks() {
+        return build().get(3).children().stream().map(MenuModel.Entry::checked).toList();
+    }
+
+    @Test
+    void noTimerChecksSinLimite() {
+        assertEquals(List.of(true, false, false, false, false, false), timerChecks());
+        assertEquals("Apagar tras: Sin límite", build().get(3).label());
+    }
+
+    @Test
+    void presetTimerChecksItsRowAndShowsInTheSubmenuLabel() {
+        build().get(3).children().get(2).action().run();
+        assertEquals(List.of(false, false, true, false, false, false), timerChecks());
+        assertEquals("Apagar tras: 1 hora", build().get(3).label());
+    }
+
+    @Test
+    void customTimerChecksPersonalizadoAndShowsItsDuration() {
+        MenuModel.setTimer(c, 45);
+        assertEquals(List.of(false, false, false, false, false, true), timerChecks());
+        assertEquals("Apagar tras: 45 min", build().get(3).label());
+    }
+
+    @Test
+    void customMinutesEqualToAPresetCheckThePreset() {
+        MenuModel.setTimer(c, 120);
+        assertEquals(List.of(false, false, false, true, false, false), timerChecks());
+    }
+
+    @Test
+    void timerChecksReturnToSinLimiteWhenClearedOrTurnedOff() {
+        MenuModel.setTimer(c, 60);
+        build().get(3).children().get(0).action().run();
+        assertEquals(List.of(true, false, false, false, false, false), timerChecks());
+        MenuModel.setTimer(c, 60);
+        c.toggle(T0);
+        assertEquals(List.of(true, false, false, false, false, false), timerChecks());
+    }
+
+    @Test
+    void timerExpiryReturnsToSinLimite() {
+        c.setTimer(Duration.ofMinutes(30), T0);
+        c.tick(T0.plus(Duration.ofMinutes(30)));
+        assertEquals(List.of(true, false, false, false, false, false), timerChecks());
+    }
+
+    @Test
+    void timerAndAutoOffChecksAreIndependent() {
+        build().get(4).action().run();
+        assertEquals(Boolean.TRUE, build().get(4).checked());
+        assertEquals(List.of(true, false, false, false, false, false), timerChecks());
+        build().get(3).children().get(1).action().run();
+        assertEquals(Boolean.TRUE, build().get(4).checked());
+        assertEquals(List.of(false, true, false, false, false, false), timerChecks());
+    }
+
     @Test
     void customAndQuitCallTheirHooks() {
         build().get(3).children().get(5).action().run();
@@ -145,8 +202,8 @@ class MenuModelTest {
     @Test
     void flattenWalksPreOrderAndTagsAreIndices() {
         List<MenuModel.Entry> flat = MenuModel.flatten(build());
-        assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-", "Apagar tras", "Sin límite",
-                "30 minutos", "1 hora", "2 horas", "4 horas", "Personalizado…", "Apagar cuando Claude termine", "-",
+        assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-", "Apagar tras: Sin límite",
+                "Sin límite", "30 minutos", "1 hora", "2 horas", "4 horas", "Personalizado…", "Apagar cuando Claude termine", "-",
                 "Salir"), labels(flat));
     }
 }

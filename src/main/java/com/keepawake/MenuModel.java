@@ -13,8 +13,17 @@ import java.util.Optional;
  */
 final class MenuModel {
     private static final String CUSTOM_LABEL = "Personalizado…";
+    private static final String NO_LIMIT_LABEL = "Sin límite";
+    private static final List<TimerPreset> TIMER_PRESETS = List.of(new TimerPreset("30 minutos", 30),
+            new TimerPreset("1 hora", 60), new TimerPreset("2 horas", 120), new TimerPreset("4 horas", 240));
 
     private MenuModel() {}
+
+    private record TimerPreset(String label, long minutes) {
+        boolean matches(Duration d) {
+            return d.equals(Duration.ofMinutes(minutes));
+        }
+    }
 
     /**
      * One row. {@code label} is null for a separator. {@code checked} is null when the row has no check mark.
@@ -87,13 +96,7 @@ final class MenuModel {
         }
         menu.add(Entry.separator());
 
-        menu.add(Entry.sub("Apagar tras", List.of(
-                Entry.item("Sin límite", controller::clearTimer),
-                Entry.item("30 minutos", () -> setTimer(controller, 30)),
-                Entry.item("1 hora", () -> setTimer(controller, 60)),
-                Entry.item("2 horas", () -> setTimer(controller, 120)),
-                Entry.item("4 horas", () -> setTimer(controller, 240)),
-                Entry.item(CUSTOM_LABEL, onCustomTimer))));
+        menu.add(timerMenu(controller, onCustomTimer));
 
         boolean autoOff = controller.isAutoOff();
         menu.add(Entry.check("Apagar cuando Claude termine", autoOff,
@@ -101,6 +104,23 @@ final class MenuModel {
         menu.add(Entry.separator());
         menu.add(Entry.item("Salir", onQuit));
         return menu;
+    }
+
+    /** Exactly one row is checked, and the submenu's own label names it so it shows without opening the submenu. */
+    private static Entry timerMenu(Controller controller, Runnable onCustomTimer) {
+        Duration selected = controller.selectedTimer().orElse(null);
+        Optional<TimerPreset> preset = TIMER_PRESETS.stream()
+                .filter(p -> selected != null && p.matches(selected)).findFirst();
+        List<Entry> rows = new ArrayList<>();
+        rows.add(Entry.check(NO_LIMIT_LABEL, selected == null, controller::clearTimer));
+        for (TimerPreset p : TIMER_PRESETS) {
+            rows.add(Entry.check(p.label(), preset.filter(p::equals).isPresent(),
+                    () -> setTimer(controller, p.minutes())));
+        }
+        rows.add(Entry.check(CUSTOM_LABEL, selected != null && preset.isEmpty(), onCustomTimer));
+        String current = selected == null ? NO_LIMIT_LABEL
+                : preset.map(TimerPreset::label).orElseGet(() -> formatDuration(selected));
+        return Entry.sub("Apagar tras: " + current, rows);
     }
 
     static void setTimer(Controller controller, long minutes) {

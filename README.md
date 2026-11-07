@@ -21,7 +21,7 @@ No ejecutes `mvn package` mientras la app está abierta; sal primero (menú > "S
 
 - La app arranca apagada y no hace nada hasta que hagas clic.
 - **Clic izquierdo**: enciende o apaga. Mientras está encendida mantiene el Mac y la pantalla despiertos, sin importar las sesiones.
-- **Clic derecho** (o Ctrl+clic): abre el menú con el estado, las sesiones, el temporizador "Apagar tras", la opción "Apagar cuando Claude termine" y "Salir".
+- **Clic derecho** (o Ctrl+clic): abre el menú con el estado, las sesiones, el temporizador "Apagar tras" (con una marca en la opción elegida, que también se lee en el propio menú, por ejemplo "Apagar tras: Sin límite"), la opción "Apagar cuando Claude termine" y "Salir".
 
 ## Apagado automático
 

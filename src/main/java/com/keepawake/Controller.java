@@ -21,6 +21,7 @@ public class Controller {
     private boolean on;
     private boolean autoOff;
     private Instant deadline;
+    private Duration timer;
     private String lastError;
     private Snapshot snapshot;
     private Instant lastTick;
@@ -50,6 +51,7 @@ public class Controller {
         }
         if (on) {
             deadline = now.plus(d);
+            timer = d;
         }
         notifyIfChanged(before);
     }
@@ -57,6 +59,7 @@ public class Controller {
     public void clearTimer() {
         State before = state();
         deadline = null;
+        timer = null;
         notifyIfChanged(before);
     }
 
@@ -106,6 +109,11 @@ public class Controller {
 
     public Optional<Instant> deadline() {
         return Optional.ofNullable(deadline);
+    }
+
+    /** The duration last chosen for the running timer; empty when there is no timer. */
+    public Optional<Duration> selectedTimer() {
+        return Optional.ofNullable(timer);
     }
 
     public Optional<Duration> autoOffRemaining(Instant now) {
@@ -158,6 +166,7 @@ public class Controller {
         awake.stop();
         on = false;
         deadline = null;
+        timer = null;
         lastTick = null;
         policy.reset();
     }
