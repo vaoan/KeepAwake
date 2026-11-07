@@ -1,9 +1,11 @@
 package com.keepawake;
 
 import java.awt.AWTException;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Desktop;
-import java.awt.EventQueue;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
@@ -25,10 +27,13 @@ import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
+import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
+import javax.swing.text.DefaultEditorKit;
 
 /**
  * Menu bar item. Normally the native helper (NativeBar); if it is missing or dies, the AWT TrayIcon with a
@@ -304,6 +309,10 @@ final class TrayApp {
         JOptionPane pane = new JOptionPane("Minutos:", JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
         pane.setWantsInput(true);
         pane.setInitialSelectionValue("60");
+        JTextField field = findTextField(pane);
+        if (field != null) {
+            bindSelectionKeys(field);
+        }
         showInFront(pane, "Apagar tras");
         Object input = pane.getInputValue();
         if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue()) || input == null
@@ -324,6 +333,27 @@ final class TrayApp {
         } else {
             MenuModel.setTimer(controller, minutes);
         }
+    }
+
+    /** Shift+Up selects from the cursor to the start of the text, Shift+Down from the cursor to the end. */
+    static void bindSelectionKeys(JTextField field) {
+        field.getInputMap().put(KeyStroke.getKeyStroke("shift UP"), DefaultEditorKit.selectionBeginAction);
+        field.getInputMap().put(KeyStroke.getKeyStroke("shift DOWN"), DefaultEditorKit.selectionEndAction);
+    }
+
+    static JTextField findTextField(Container parent) {
+        for (Component c : parent.getComponents()) {
+            if (c instanceof JTextField field) {
+                return field;
+            }
+            if (c instanceof Container child) {
+                JTextField found = findTextField(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private void message(String text) {
