@@ -49,4 +49,4 @@ Se cuentan las sesiones de tipo `interactive` y `bg`. Quedan fuera `claude -p` y
 - Con la tapa cerrada el Mac se suspende igualmente (salvo con monitor externo y corriente); `caffeinate` no lo evita.
 - Icono apagado (gris) no garantiza que el Mac se suspenda: Claude Code ejecuta su propio `caffeinate -i` durante sus sesiones.
 - Un shell en segundo plano olvidado mantiene la sesión como trabajando; usa el temporizador como respaldo.
-- Si los archivos de `~/.claude/sessions` no se pueden leer, la app muestra una advertencia (icono ámbar) y se mantiene despierta.
+- Si los archivos de `~/.claude/sessions` no se pueden leer, la app muestra una advertencia (icono rojo) y se mantiene despierta.
