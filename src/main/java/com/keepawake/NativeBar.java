@@ -31,7 +31,6 @@ final class NativeBar {
     private String lastTip;
     private volatile boolean alive = true;
     private volatile boolean closed;
-    private volatile Boolean notificationsAllowed;
 
     private NativeBar(Process process) {
         this.process = process;
@@ -71,15 +70,6 @@ final class NativeBar {
 
     boolean isAlive() {
         return alive;
-    }
-
-    /** Whether macOS lets the helper post notifications: null until it says, then true or false. */
-    Boolean notificationsAllowed() {
-        return notificationsAllowed;
-    }
-
-    void notify(String title, String body) {
-        send(notifyLine(title, body));
     }
 
     /** The image is 44x44 (shown at 22 pt). Images are cached, so the same object means the same picture. */
@@ -150,10 +140,6 @@ final class NativeBar {
         return "tip\t" + clean(text) + "\n";
     }
 
-    static String notifyLine(String title, String body) {
-        return "notify\t" + clean(title) + "\t" + clean(body) + "\n";
-    }
-
     /** The runnable entry for a tag in the model last sent; null for a bad tag, separator, submenu or disabled row. */
     static MenuModel.Entry lookup(List<MenuModel.Entry> flat, int tag) {
         if (tag < 0 || tag >= flat.size()) return null;
@@ -216,10 +202,6 @@ final class NativeBar {
             while ((line = in.readLine()) != null) {
                 if (line.equals("toggle")) {
                     EventQueue.invokeLater(onToggle);
-                } else if (line.startsWith("notify-auth\t")) {
-                    notificationsAllowed = line.endsWith("1");
-                } else if (line.startsWith("notify-error\t")) {
-                    System.err.println("KeepAwake: la notificación falló: " + line.substring(13));
                 } else if (line.startsWith("shown\t")) {
                     try {
                         int generation = Integer.parseInt(line.substring(6).trim());

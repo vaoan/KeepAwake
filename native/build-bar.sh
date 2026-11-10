@@ -1,6 +1,5 @@
 #!/bin/sh
-# Builds KeepAwakeBar.app, the native macOS helper: the menu-bar item (narrower than Java's TrayIcon, real NSMenu)
-# and system notifications, which macOS only lets a bundled app post (it shows and asks permission as "KeepAwake").
+# Builds KeepAwakeBar.app, the native macOS helper: the menu-bar item (narrower than Java's TrayIcon, real NSMenu).
 # KeepAwake falls back to the Java tray icon when it is missing. Needs swiftc (Xcode Command Line Tools).
 # Usage: native/build-bar.sh [out .app]   (default: ~/Library/Caches/keepawake-build/KeepAwakeBar.app)
 # Prints the path of the executable inside the bundle.

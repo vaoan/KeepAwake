@@ -5,73 +5,18 @@
 //   menu <gen> <n>        a menu with generation number gen, followed by n lines, each "item <tag> <enabled 0|1> <checked -1|0|1> <label>", "sep",
 //                         "sub <label>" (opens a submenu: the lines up to its "endsub" are its items) or "endsub".
 //                         Submenus nest. n counts every line, "sub" and "endsub" included.
-//   notify <title> <body> a system notification (Notification Center, Do Not Disturb…)
 // It writes to stdout: "click <gen> <tag>" when a menu item is chosen (gen is the generation of the menu that row
 // belonged to when it was shown, so the app runs the action of the row the person saw), "shown <gen>" when it starts
-// displaying a menu, "toggle" on a left click on the icon,
-// "notify-auth <1|0>" when notifications become allowed or not (also later), and exits when stdin closes (the app quit or died).
+// displaying a menu, "toggle" on a left click on the icon, and exits when stdin closes (the app quit or died).
 // Left click toggles; right click (or control-click) opens the menu.
-// Notifications need it to run from its bundle (KeepAwakeBar.app, built by native/build-bar.sh): that's what macOS
-// shows ("KeepAwake") and asks permission for. A plain java process can't post them.
 import AppKit
-import UserNotifications
 
-/** One writer for stdout: menu clicks and notification callbacks come from different threads. */
+/** One writer for stdout. */
 let output = DispatchQueue(label: "stdout")
 func emit(_ line: String) {
     output.async {
         print(line)
         fflush(stdout)
-    }
-}
-
-final class Notes: NSObject, UNUserNotificationCenterDelegate {
-    private let center = UNUserNotificationCenter.current()
-    /** Only touched on the output queue. */
-    private var lastReported: Bool?
-
-    func setUp() {
-        center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-            self.report(granted)
-            // The first answer can be "no" even when the person clicks Allow, and System Settings can change it at
-            // any time: keep asking, so KeepAwake follows without a restart.
-            DispatchQueue.main.async {
-                Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { _ in self.check() }
-            }
-        }
-    }
-
-    private func check() {
-        center.getNotificationSettings { settings in
-            self.report(settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
-        }
-    }
-
-    /** Tells KeepAwake only when the answer changes. */
-    private func report(_ allowed: Bool) {
-        output.async {
-            if self.lastReported == allowed { return }
-            self.lastReported = allowed
-            print("notify-auth\t\(allowed ? 1 : 0)")
-            fflush(stdout)
-        }
-    }
-
-    func post(title: String, body: String) {
-        let c = UNMutableNotificationContent()
-        c.title = title
-        c.body = body
-        c.sound = .default
-        center.add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil)) { error in
-            if let error { emit("notify-error\t\(error.localizedDescription)") }
-        }
-    }
-
-    /** Shown even if this helper counts as frontmost (it never is: it has no windows). */
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
-                                withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
-        done([.banner, .list, .sound])
     }
 }
 
@@ -165,9 +110,6 @@ final class Bar: NSObject, NSMenuDelegate {
             guard expected > 0 else { return }
             incoming.append(parts)
             if incoming.count == expected { apply() }
-        case "notify":
-            guard parts.count >= 3 else { return }
-            notes.post(title: parts[1], body: parts[2])
         default:
             break
         }
@@ -267,9 +209,6 @@ final class Bar: NSObject, NSMenuDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
-let notes = Notes()
-// Only from the bundle: outside one, UNUserNotificationCenter aborts the process.
-if Bundle.main.bundleIdentifier != nil { notes.setUp() } else { emit("notify-auth\t0") }
 let bar = Bar()
 Thread {
     while let line = readLine() {

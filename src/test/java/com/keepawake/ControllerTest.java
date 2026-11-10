@@ -281,35 +281,6 @@ class ControllerTest {
     }
 
     @Test
-    void autoOffNoticeIsSetOnceByPolicy() {
-        assertFalse(c.consumeAutoOffNotice());
-        c.setAutoOff(true, T0);
-        c.toggle(T0);
-        tickEvery30s(T0, 120);
-        assertFalse(c.isOn());
-        assertTrue(c.consumeAutoOffNotice());
-        assertFalse(c.consumeAutoOffNotice());
-    }
-
-    @Test
-    void autoOffNoticeNotSetByTimerToggleOrDeath() {
-        c.setTimer(Duration.ofMinutes(1), T0);
-        c.tick(T0.plusSeconds(60));
-        assertFalse(c.isOn());
-        assertFalse(c.consumeAutoOffNotice());
-
-        c.toggle(T0.plusSeconds(61));
-        c.toggle(T0.plusSeconds(62));
-        assertFalse(c.consumeAutoOffNotice());
-
-        c.toggle(T0.plusSeconds(63));
-        awake.running = false;
-        c.tick(T0.plusSeconds(64));
-        assertFalse(c.isOn());
-        assertFalse(c.consumeAutoOffNotice());
-    }
-
-    @Test
     void autoOnTurnsOnWhenASessionStartsWorking() {
         c.setAutoOn(true, T0);
         assertFalse(c.isOn());
@@ -317,8 +288,6 @@ class ControllerTest {
         c.tick(T0.plusSeconds(3));
         assertTrue(c.isOn());
         assertTrue(awake.running);
-        assertTrue(c.consumeAutoOnNotice());
-        assertFalse(c.consumeAutoOnNotice());
     }
 
     @Test
@@ -350,7 +319,6 @@ class ControllerTest {
         snap = of(SessionStatus.WORKING);
         c.tick(T0);
         assertFalse(c.isOn());
-        assertFalse(c.consumeAutoOnNotice());
     }
 
     @Test
@@ -389,7 +357,6 @@ class ControllerTest {
         c.tick(T0.plusSeconds(3));
         assertFalse(c.isOn());
         assertEquals(Controller.ERR_START, c.lastError());
-        assertFalse(c.consumeAutoOnNotice());
         awake.failStart = false;
         c.tick(T0.plusSeconds(6));
         assertFalse(c.isOn());

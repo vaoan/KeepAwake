@@ -39,9 +39,8 @@ class NativeBarProtocolTest {
     }
 
     @Test
-    void iconTipAndNotifyLines() {
+    void tipLine() {
         assertEquals("tip\tInactivo · x y\n", NativeBar.tipLine("Inactivo · x\ty"));
-        assertEquals("notify\tTítulo\tcuerpo uno\n", NativeBar.notifyLine("Título", "cuerpo\tuno"));
     }
 
     @Test
@@ -114,12 +113,5 @@ class NativeBarProtocolTest {
         assertNull(models.resolve(g + 5, 0));
         assertNull(models.resolve(g, 9));
         assertEquals(0, ran);
-    }
-
-    @Test
-    void scriptNotificationEscapesQuotesAndBackslashes() {
-        assertEquals("display notification \"dijo \\\"hola\\\" a\\\\b\" with title \"Keep\\\"Awake\"",
-                ScriptNotification.script("Keep\"Awake", "dijo \"hola\" a\\b"));
-        assertEquals("display notification \"a b\" with title \"t\"", ScriptNotification.script("t", "a\nb"));
     }
 }

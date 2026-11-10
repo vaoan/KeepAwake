@@ -9,7 +9,7 @@ JAVA_HOME=$(brew --prefix openjdk@21) mvn package
 ./run.sh
 ```
 
-No aparece en el Dock, solo el icono en la barra de menús. El icono es un ayudante nativo que `./run.sh` compila con `swiftc` (Xcode Command Line Tools: `xcode-select --install`); se recompila cuando cambia `native/KeepAwakeBar.swift`. Sin `swiftc`, o si la compilación falla, la app usa el icono de bandeja de Java. La primera vez, macOS pide permiso para las notificaciones, a nombre de KeepAwake. Si las notificaciones están denegadas para KeepAwake, usa una notificación de script de macOS. `./run.sh` corre en primer plano: si cierras la terminal, se cierra la app. Para dejarla independiente:
+No aparece en el Dock, solo el icono en la barra de menús. El icono es un ayudante nativo que `./run.sh` compila con `swiftc` (Xcode Command Line Tools: `xcode-select --install`); se recompila cuando cambia `native/KeepAwakeBar.swift`. Sin `swiftc`, o si la compilación falla, la app usa el icono de bandeja de Java. `./run.sh` corre en primer plano: si cierras la terminal, se cierra la app. Para dejarla independiente:
 
 ```
 nohup ./run.sh >/dev/null 2>&1 &
@@ -35,13 +35,13 @@ Las dos opciones vienen activadas, se guardan en `~/Library/Application Support/
 
 ## Encendido automático
 
-Viene activado; se puede desactivar en el menú. Con "Encender cuando Claude esté trabajando" activado, la app se enciende en cuanto cualquier sesión pasa a trabajar (incluido un shell en segundo plano), y al momento si alguna ya trabajaba al activarla. Una notificación te avisa. Las sesiones en espera o de estado desconocido no la encienden.
+Viene activado; se puede desactivar en el menú. Con "Encender cuando Claude esté trabajando" activado, la app se enciende en cuanto cualquier sesión pasa a trabajar (incluido un shell en segundo plano), y al momento si alguna ya trabajaba al activarla. Las sesiones en espera o de estado desconocido no la encienden. El icono cambia de color; no hay notificaciones.
 
 Si la apagas (con un clic o por el temporizador) mientras Claude trabaja, no se vuelve a encender hasta que todas las sesiones dejen de trabajar y alguna empiece de nuevo. Desactivar la opción no apaga la app.
 
 ## Apagado automático
 
-Viene activado; se puede desactivar en el menú. Con "Apagar cuando Claude termine" activado, la app se apaga cuando todas las sesiones llevan esperándote, o ya no queda ninguna, durante 2 minutos seguidos. También se apaga así si ya estaban esperando al activarla. Una notificación te avisa.
+Viene activado; se puede desactivar en el menú. Con "Apagar cuando Claude termine" activado, la app se apaga cuando todas las sesiones llevan esperándote, o ya no queda ninguna, durante 2 minutos seguidos. También se apaga así si ya estaban esperando al activarla.
 
 Para que se vuelva a encender sola cuando Claude retoma el trabajo, activa también el encendido automático; si no, haz clic otra vez. Si el Mac estuvo suspendido, la cuenta de 2 minutos empieza de nuevo al despertar.
 

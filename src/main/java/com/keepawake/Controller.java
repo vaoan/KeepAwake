@@ -28,8 +28,6 @@ public class Controller {
     private String lastError;
     private Snapshot snapshot;
     private Instant lastTick;
-    private boolean autoOffNotice;
-    private boolean autoOnNotice;
 
     public Controller(Awake awake, Supplier<Snapshot> scan, Runnable onChange) {
         this.awake = awake;
@@ -105,7 +103,6 @@ public class Controller {
             turnOff();
         } else if (on && autoOff && policy.shouldTurnOff(snapshot, now)) {
             turnOff();
-            autoOffNotice = true;
         } else {
             maybeAutoOn(now);
         }
@@ -146,20 +143,6 @@ public class Controller {
         return snapshot;
     }
 
-    /** True once after the auto-off policy turned keep-awake off; false afterwards. */
-    public boolean consumeAutoOffNotice() {
-        boolean n = autoOffNotice;
-        autoOffNotice = false;
-        return n;
-    }
-
-    /** True once after auto-on turned keep-awake on; false afterwards. */
-    public boolean consumeAutoOnNotice() {
-        boolean n = autoOnNotice;
-        autoOnNotice = false;
-        return n;
-    }
-
     public boolean hasWarning() {
         return !snapshot.readable() || snapshot.hasUnknown();
     }
@@ -188,7 +171,6 @@ public class Controller {
         } else if (autoOn && !autoOnSpent) {
             autoOnSpent = true;
             turnOn(now);
-            autoOnNotice = on;
         }
     }
 

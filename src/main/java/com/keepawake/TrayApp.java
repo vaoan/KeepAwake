@@ -62,7 +62,7 @@ final class TrayApp {
         Path dir = Path.of(System.getProperty("user.home"), ".claude", "sessions");
         SessionScanner scanner = new SessionScanner(dir, SessionScanner.systemProbe());
         controller = new Controller(caffeinator, scanner::scan, this::refresh);
-        timer = new Timer(TICK_MILLIS, e -> tickAndNotify());
+        timer = new Timer(TICK_MILLIS, e -> tick());
         savedSettings = Settings.load(settingsFile);
         savedSettings.apply(controller, Instant.now());
     }
@@ -81,32 +81,9 @@ final class TrayApp {
         }
     }
 
-    private void tickAndNotify() {
-        String errBefore = controller.lastError();
+    private void tick() {
         controller.tick(Instant.now());
         refresh();
-        if (controller.consumeAutoOffNotice()) {
-            notifyUser("Claude terminó. El Mac vuelve a su comportamiento normal.");
-        }
-        if (controller.consumeAutoOnNotice()) {
-            notifyUser("Claude está trabajando. El Mac se mantendrá despierto.");
-        }
-        String err = controller.lastError();
-        if (err != null && !err.equals(errBefore)) {
-            notifyUser(err);
-        }
-    }
-
-    /**
-     * The helper's notification when it is alive and macOS allows it (or has not said yet); otherwise a script
-     * notification. (AWT's displayMessage is dropped by macOS for a plain java process.)
-     */
-    private void notifyUser(String message) {
-        if (bar != null && bar.isAlive() && !Boolean.FALSE.equals(bar.notificationsAllowed())) {
-            bar.notify("KeepAwake", message);
-        } else {
-            ScriptNotification.post("KeepAwake", message);
-        }
     }
 
     void start() throws AWTException {
@@ -225,7 +202,7 @@ final class TrayApp {
 
     private void showMenu(MouseEvent e) {
         hideAnchor();
-        tickAndNotify();
+        tick();
         JPopupMenu menu = buildMenu();
         Dimension size = menu.getPreferredSize();
         Point p = new Point(e.getXOnScreen(), e.getYOnScreen());
