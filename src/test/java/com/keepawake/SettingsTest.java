@@ -15,14 +15,21 @@ class SettingsTest {
     @TempDir Path dir;
 
     @Test
-    void missingFileIsBothOff() {
-        assertEquals(Settings.DEFAULT, Settings.load(dir.resolve("settings.properties")));
+    void missingFileIsBothOn() {
+        assertEquals(new Settings(true, true), Settings.load(dir.resolve("settings.properties")));
+    }
+
+    @Test
+    void missingKeyIsOn() throws IOException {
+        Path file = dir.resolve("settings.properties");
+        Files.writeString(file, "autoOn=false\n");
+        assertEquals(new Settings(false, true), Settings.load(file));
     }
 
     @Test
     void saveThenLoadRoundTrips() throws IOException {
         Path file = dir.resolve("sub").resolve("settings.properties");
-        for (Settings s : new Settings[] {new Settings(true, false), new Settings(false, true), new Settings(true, true)}) {
+        for (Settings s : new Settings[] {new Settings(true, false), new Settings(false, true), new Settings(false, false)}) {
             s.save(file);
             assertEquals(s, Settings.load(file));
         }
@@ -30,10 +37,10 @@ class SettingsTest {
     }
 
     @Test
-    void garbageIsBothOff() throws IOException {
+    void malformedFileIsBothOn() throws IOException {
         Path file = dir.resolve("settings.properties");
-        Files.writeString(file, "autoOn=quizá\n\\u12");
-        assertEquals(Settings.DEFAULT, Settings.load(file));
+        Files.writeString(file, "autoOn=false\n\\u12");
+        assertEquals(new Settings(true, true), Settings.load(file));
     }
 
     @Test

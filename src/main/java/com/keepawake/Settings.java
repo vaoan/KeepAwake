@@ -9,9 +9,12 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
-/** The menu's two options, kept across restarts in a properties file. A missing or unreadable file means both off. */
+/**
+ * The menu's two options, kept across restarts in a properties file. Both default to on (follow Claude): a missing or
+ * unreadable file, or a missing key, means on.
+ */
 record Settings(boolean autoOn, boolean autoOff) {
-    static final Settings DEFAULT = new Settings(false, false);
+    static final Settings DEFAULT = new Settings(true, true);
     private static final String AUTO_ON = "autoOn";
     private static final String AUTO_OFF = "autoOff";
 
@@ -31,7 +34,12 @@ record Settings(boolean autoOn, boolean autoOff) {
         } catch (IOException | IllegalArgumentException e) {
             return DEFAULT;
         }
-        return new Settings(Boolean.parseBoolean(p.getProperty(AUTO_ON)), Boolean.parseBoolean(p.getProperty(AUTO_OFF)));
+        return new Settings(flag(p, AUTO_ON, DEFAULT.autoOn), flag(p, AUTO_OFF, DEFAULT.autoOff));
+    }
+
+    private static boolean flag(Properties p, String key, boolean fallback) {
+        String v = p.getProperty(key);
+        return v == null ? fallback : Boolean.parseBoolean(v.trim());
     }
 
     /** Writes a temporary file and moves it into place, so a crash never leaves half a file. */
