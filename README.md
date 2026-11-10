@@ -27,15 +27,23 @@ Compila, copia la app a `~/Library/Application Support/KeepAwake`, la registra c
 
 ## Uso
 
-- La app arranca apagada y no hace nada hasta que hagas clic.
+- La app arranca apagada y no hace nada hasta que hagas clic (o actives el encendido automático).
 - **Clic izquierdo**: enciende o apaga. Mientras está encendida mantiene el Mac y la pantalla despiertos, sin importar las sesiones.
-- **Clic derecho** (o Ctrl+clic): abre el menú con el estado, las sesiones, el temporizador "Apagar tras" (con una marca en la opción elegida, que también se lee en el propio menú, por ejemplo "Apagar tras: Sin límite"), la opción "Apagar cuando Claude termine" y "Salir".
+- **Clic derecho** (o Ctrl+clic): abre el menú con el estado, las sesiones, el temporizador "Apagar tras" (con una marca en la opción elegida, que también se lee en el propio menú, por ejemplo "Apagar tras: Sin límite"), las opciones "Encender cuando Claude esté trabajando" y "Apagar cuando Claude termine", y "Salir".
+
+Las dos opciones se guardan en `~/Library/Application Support/KeepAwake/settings.properties` y se recuperan al abrir la app. El encendido y el temporizador no se guardan: la app arranca apagada, salvo que el encendido automático la encienda porque Claude ya está trabajando.
+
+## Encendido automático
+
+Es opcional. Con "Encender cuando Claude esté trabajando" activado, la app se enciende en cuanto cualquier sesión pasa a trabajar (incluido un shell en segundo plano), y al momento si alguna ya trabajaba al activarla. Una notificación te avisa. Las sesiones en espera o de estado desconocido no la encienden.
+
+Si la apagas (con un clic o por el temporizador) mientras Claude trabaja, no se vuelve a encender hasta que todas las sesiones dejen de trabajar y alguna empiece de nuevo. Desactivar la opción no apaga la app.
 
 ## Apagado automático
 
 Es opcional. Con "Apagar cuando Claude termine" activado, la app se apaga cuando todas las sesiones llevan esperándote, o ya no queda ninguna, durante 2 minutos seguidos. También se apaga así si ya estaban esperando al activarla. Una notificación te avisa.
 
-No se vuelve a encender sola cuando Claude retoma el trabajo; haz clic otra vez. Si el Mac estuvo suspendido, la cuenta de 2 minutos empieza de nuevo al despertar.
+Para que se vuelva a encender sola cuando Claude retoma el trabajo, activa también el encendido automático; si no, haz clic otra vez. Si el Mac estuvo suspendido, la cuenta de 2 minutos empieza de nuevo al despertar.
 
 ## Estados de sesión
 

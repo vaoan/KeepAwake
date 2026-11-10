@@ -98,6 +98,9 @@ final class MenuModel {
 
         menu.add(timerMenu(controller, onCustomTimer));
 
+        boolean autoOn = controller.isAutoOn();
+        menu.add(Entry.check("Encender cuando Claude esté trabajando", autoOn,
+                () -> controller.setAutoOn(!autoOn, Instant.now())));
         boolean autoOff = controller.isAutoOff();
         menu.add(Entry.check("Apagar cuando Claude termine", autoOff,
                 () -> controller.setAutoOff(!autoOff, Instant.now())));

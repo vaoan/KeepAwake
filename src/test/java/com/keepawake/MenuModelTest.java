@@ -48,7 +48,8 @@ class MenuModelTest {
     void offWithoutSessions() {
         List<MenuModel.Entry> m = build();
         assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-",
-                "Apagar tras: Sin límite", "Apagar cuando Claude termine", "-", "Salir"), labels(m));
+                "Apagar tras: Sin límite", "Encender cuando Claude esté trabajando", "Apagar cuando Claude termine", "-",
+                "Salir"), labels(m));
         assertFalse(m.get(0).enabled());
         assertFalse(m.get(1).enabled());
     }
@@ -159,31 +160,42 @@ class MenuModelTest {
 
     @Test
     void timerAndAutoOffChecksAreIndependent() {
-        build().get(4).action().run();
-        assertEquals(Boolean.TRUE, build().get(4).checked());
+        build().get(5).action().run();
+        assertEquals(Boolean.TRUE, build().get(5).checked());
         assertEquals(List.of(true, false, false, false, false, false), timerChecks());
         build().get(3).children().get(1).action().run();
-        assertEquals(Boolean.TRUE, build().get(4).checked());
+        assertEquals(Boolean.TRUE, build().get(5).checked());
         assertEquals(List.of(false, true, false, false, false, false), timerChecks());
     }
 
     @Test
     void customAndQuitCallTheirHooks() {
         build().get(3).children().get(5).action().run();
-        build().get(6).action().run();
+        build().get(7).action().run();
         assertEquals(1, customCalls);
         assertEquals(1, quitCalls);
     }
 
     @Test
     void autoOffIsCheckedAndActionToggles() {
-        MenuModel.Entry auto = build().get(4);
+        MenuModel.Entry auto = build().get(5);
         assertEquals(Boolean.FALSE, auto.checked());
         auto.action().run();
         assertTrue(c.isAutoOff());
+        assertEquals(Boolean.TRUE, build().get(5).checked());
+        build().get(5).action().run();
+        assertFalse(c.isAutoOff());
+    }
+
+    @Test
+    void autoOnIsCheckedAndActionToggles() {
+        MenuModel.Entry auto = build().get(4);
+        assertEquals(Boolean.FALSE, auto.checked());
+        auto.action().run();
+        assertTrue(c.isAutoOn());
         assertEquals(Boolean.TRUE, build().get(4).checked());
         build().get(4).action().run();
-        assertFalse(c.isAutoOff());
+        assertFalse(c.isAutoOn());
     }
 
     @Test
@@ -203,7 +215,8 @@ class MenuModelTest {
     void flattenWalksPreOrderAndTagsAreIndices() {
         List<MenuModel.Entry> flat = MenuModel.flatten(build());
         assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-", "Apagar tras: Sin límite",
-                "Sin límite", "30 minutos", "1 hora", "2 horas", "4 horas", "Personalizado…", "Apagar cuando Claude termine", "-",
+                "Sin límite", "30 minutos", "1 hora", "2 horas", "4 horas", "Personalizado…", "Encender cuando Claude esté trabajando",
+                "Apagar cuando Claude termine", "-",
                 "Salir"), labels(flat));
     }
 }

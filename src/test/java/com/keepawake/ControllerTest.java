@@ -308,4 +308,114 @@ class ControllerTest {
         assertFalse(c.isOn());
         assertFalse(c.consumeAutoOffNotice());
     }
+
+    @Test
+    void autoOnTurnsOnWhenASessionStartsWorking() {
+        c.setAutoOn(true, T0);
+        assertFalse(c.isOn());
+        snap = of(SessionStatus.WAITING, SessionStatus.WORKING);
+        c.tick(T0.plusSeconds(3));
+        assertTrue(c.isOn());
+        assertTrue(awake.running);
+        assertTrue(c.consumeAutoOnNotice());
+        assertFalse(c.consumeAutoOnNotice());
+    }
+
+    @Test
+    void autoOnCountsBackgroundShellAsWorking() {
+        c.setAutoOn(true, T0);
+        snap = of(SessionStatus.BACKGROUND);
+        c.tick(T0.plusSeconds(3));
+        assertTrue(c.isOn());
+    }
+
+    @Test
+    void autoOnIgnoresWaitingAndUnknownSessions() {
+        c.setAutoOn(true, T0);
+        snap = of(SessionStatus.WAITING, SessionStatus.UNKNOWN);
+        c.tick(T0.plusSeconds(3));
+        assertFalse(c.isOn());
+    }
+
+    @Test
+    void enablingAutoOnWhileWorkingTurnsOnAtOnce() {
+        snap = of(SessionStatus.WORKING);
+        c.setAutoOn(true, T0);
+        assertTrue(c.isOn());
+        assertTrue(c.isAutoOn());
+    }
+
+    @Test
+    void autoOnDisabledIgnoresWork() {
+        snap = of(SessionStatus.WORKING);
+        c.tick(T0);
+        assertFalse(c.isOn());
+        assertFalse(c.consumeAutoOnNotice());
+    }
+
+    @Test
+    void manualOffWhileWorkingStaysOffUntilTheWorkEnds() {
+        c.setAutoOn(true, T0);
+        snap = of(SessionStatus.WORKING);
+        c.tick(T0.plusSeconds(3));
+        c.toggle(T0.plusSeconds(4));
+        c.tick(T0.plusSeconds(6));
+        assertFalse(c.isOn());
+
+        snap = of(SessionStatus.WAITING);
+        c.tick(T0.plusSeconds(9));
+        assertFalse(c.isOn());
+        snap = of(SessionStatus.WORKING);
+        c.tick(T0.plusSeconds(12));
+        assertTrue(c.isOn());
+    }
+
+    @Test
+    void timerExpiryWhileWorkingStaysOff() {
+        c.setAutoOn(true, T0);
+        snap = of(SessionStatus.WORKING);
+        c.setTimer(Duration.ofMinutes(1), T0);
+        c.tick(T0.plusSeconds(60));
+        assertFalse(c.isOn());
+        c.tick(T0.plusSeconds(63));
+        assertFalse(c.isOn());
+    }
+
+    @Test
+    void autoOnStartFailureIsNotRetriedEveryTick() {
+        awake.failStart = true;
+        c.setAutoOn(true, T0);
+        snap = of(SessionStatus.WORKING);
+        c.tick(T0.plusSeconds(3));
+        assertFalse(c.isOn());
+        assertEquals(Controller.ERR_START, c.lastError());
+        assertFalse(c.consumeAutoOnNotice());
+        awake.failStart = false;
+        c.tick(T0.plusSeconds(6));
+        assertFalse(c.isOn());
+    }
+
+    @Test
+    void autoOnAndAutoOffFollowTheWork() {
+        c.setAutoOn(true, T0);
+        c.setAutoOff(true, T0);
+        snap = of(SessionStatus.WORKING);
+        c.tick(T0);
+        assertTrue(c.isOn());
+        snap = of(SessionStatus.WAITING);
+        tickEvery30s(T0.plusSeconds(30), 120);
+        assertFalse(c.isOn());
+        snap = of(SessionStatus.WORKING);
+        c.tick(T0.plusSeconds(180));
+        assertTrue(c.isOn());
+    }
+
+    @Test
+    void disablingAutoOnLeavesItOn() {
+        snap = of(SessionStatus.WORKING);
+        c.setAutoOn(true, T0);
+        c.setAutoOn(false, T0.plusSeconds(1));
+        assertTrue(c.isOn());
+        assertFalse(c.isAutoOn());
+    }
 }

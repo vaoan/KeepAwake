@@ -17,6 +17,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -54,12 +55,30 @@ final class TrayApp {
     private boolean quitting;
     private boolean customTimerOpen;
     private JDialog anchor;
+    private final Path settingsFile = Settings.defaultFile();
+    private Settings savedSettings;
 
     TrayApp() {
         Path dir = Path.of(System.getProperty("user.home"), ".claude", "sessions");
         SessionScanner scanner = new SessionScanner(dir, SessionScanner.systemProbe());
         controller = new Controller(caffeinator, scanner::scan, this::refresh);
         timer = new Timer(TICK_MILLIS, e -> tickAndNotify());
+        savedSettings = Settings.load(settingsFile);
+        savedSettings.apply(controller, Instant.now());
+    }
+
+    /** Saves the menu's options when they changed; a failed write is logged and not retried until they change. */
+    private void saveSettings() {
+        Settings now = Settings.of(controller);
+        if (now.equals(savedSettings)) {
+            return;
+        }
+        savedSettings = now;
+        try {
+            now.save(settingsFile);
+        } catch (IOException e) {
+            System.err.println("KeepAwake: no se pudieron guardar las opciones: " + e.getMessage());
+        }
     }
 
     private void tickAndNotify() {
@@ -68,6 +87,9 @@ final class TrayApp {
         refresh();
         if (controller.consumeAutoOffNotice()) {
             notifyUser("Claude terminó. El Mac vuelve a su comportamiento normal.");
+        }
+        if (controller.consumeAutoOnNotice()) {
+            notifyUser("Claude está trabajando. El Mac se mantendrá despierto.");
         }
         String err = controller.lastError();
         if (err != null && !err.equals(errBefore)) {
@@ -154,6 +176,7 @@ final class TrayApp {
     }
 
     private void refresh() {
+        saveSettings();
         Instant now = Instant.now();
         Snapshot snap = controller.snapshot();
         String tip = tooltip(MenuModel.statusLine(controller, now),
