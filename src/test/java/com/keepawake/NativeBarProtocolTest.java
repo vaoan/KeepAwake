@@ -12,7 +12,7 @@ class NativeBarProtocolTest {
         return List.of(
                 MenuModel.Entry.disabled("Activo\tya"),
                 MenuModel.Entry.separator(),
-                MenuModel.Entry.sub("Apagar tras", List.of(
+                MenuModel.Entry.sub("Desactivar tras", List.of(
                         MenuModel.Entry.item("30 minutos", () -> ran += 10),
                         MenuModel.Entry.item("1 hora", () -> ran += 100))),
                 MenuModel.Entry.check("Auto", true, () -> ran++),
@@ -24,7 +24,7 @@ class NativeBarProtocolTest {
         assertEquals("menu\t7\t8\n"
                 + "item\t0\t0\t-1\tActivo ya\n"
                 + "sep\n"
-                + "sub\tApagar tras\n"
+                + "sub\tDesactivar tras\n"
                 + "item\t3\t1\t-1\t30 minutos\n"
                 + "item\t4\t1\t-1\t1 hora\n"
                 + "endsub\n"

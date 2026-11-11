@@ -11,7 +11,7 @@ public final class Main {
         System.setProperty("apple.awt.UIElement", "true");
         boolean helper = System.getProperty("keepawake.bar") != null;
         if (!helper && !SystemTray.isSupported()) {
-            JOptionPane.showMessageDialog(null, "Esta plataforma no admite icono en la barra de menús");
+            JOptionPane.showMessageDialog(null, Messages.get("error.noTray"));
             System.exit(1);
             return;
         }
@@ -22,7 +22,7 @@ public final class Main {
                 app.start();
             } catch (Exception e) {
                 e.printStackTrace();
-                JOptionPane.showMessageDialog(null, "No se pudo iniciar KeepAwake: " + e.getMessage());
+                JOptionPane.showMessageDialog(null, Messages.format("error.startFailed", e.getMessage()));
                 System.exit(1);
             }
         });

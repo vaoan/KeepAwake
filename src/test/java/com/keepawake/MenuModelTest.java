@@ -48,7 +48,7 @@ class MenuModelTest {
     void offWithoutSessions() {
         List<MenuModel.Entry> m = build();
         assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-",
-                "Apagar tras: Sin límite", "Encender cuando Claude esté trabajando", "Apagar cuando Claude termine", "-",
+                "Desactivar tras: Sin límite", "Activar cuando Claude esté trabajando", "Desactivar cuando Claude termine", "-",
                 "Salir"), labels(m));
         assertFalse(m.get(0).enabled());
         assertFalse(m.get(1).enabled());
@@ -90,7 +90,7 @@ class MenuModelTest {
     @Test
     void deadlineShowsRemainingInStatusLine() {
         c.setTimer(Duration.ofMinutes(80), T0);
-        assertEquals("Activo · apaga en 1 h 20 min", build().get(0).label());
+        assertEquals("Activo · se desactiva en 1 h 20 min", build().get(0).label());
     }
 
     @Test
@@ -118,21 +118,21 @@ class MenuModelTest {
     @Test
     void noTimerChecksSinLimite() {
         assertEquals(List.of(true, false, false, false, false, false), timerChecks());
-        assertEquals("Apagar tras: Sin límite", build().get(3).label());
+        assertEquals("Desactivar tras: Sin límite", build().get(3).label());
     }
 
     @Test
     void presetTimerChecksItsRowAndShowsInTheSubmenuLabel() {
         build().get(3).children().get(2).action().run();
         assertEquals(List.of(false, false, true, false, false, false), timerChecks());
-        assertEquals("Apagar tras: 1 hora", build().get(3).label());
+        assertEquals("Desactivar tras: 1 hora", build().get(3).label());
     }
 
     @Test
     void customTimerChecksPersonalizadoAndShowsItsDuration() {
         MenuModel.setTimer(c, 45);
         assertEquals(List.of(false, false, false, false, false, true), timerChecks());
-        assertEquals("Apagar tras: 45 min", build().get(3).label());
+        assertEquals("Desactivar tras: 45 min", build().get(3).label());
     }
 
     @Test
@@ -214,9 +214,9 @@ class MenuModelTest {
     @Test
     void flattenWalksPreOrderAndTagsAreIndices() {
         List<MenuModel.Entry> flat = MenuModel.flatten(build());
-        assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-", "Apagar tras: Sin límite",
-                "Sin límite", "30 minutos", "1 hora", "2 horas", "4 horas", "Personalizado…", "Encender cuando Claude esté trabajando",
-                "Apagar cuando Claude termine", "-",
+        assertEquals(List.of("Inactivo", "Sesiones: 0 trabajando, 0 en espera", "-", "Desactivar tras: Sin límite",
+                "Sin límite", "30 minutos", "1 hora", "2 horas", "4 horas", "Personalizado…", "Activar cuando Claude esté trabajando",
+                "Desactivar cuando Claude termine", "-",
                 "Salir"), labels(flat));
     }
 }

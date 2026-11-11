@@ -8,14 +8,15 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The menu as data: rows, Spanish text and actions, built from Controller state. The native helper and the Swing
+ * The menu as data: rows, localized text (Messages) and actions, built from Controller state. The native helper and the Swing
  * popup both render it. Pure: no AWT, no I/O.
  */
 final class MenuModel {
-    private static final String CUSTOM_LABEL = "Personalizado…";
-    private static final String NO_LIMIT_LABEL = "Sin límite";
-    private static final List<TimerPreset> TIMER_PRESETS = List.of(new TimerPreset("30 minutos", 30),
-            new TimerPreset("1 hora", 60), new TimerPreset("2 horas", 120), new TimerPreset("4 horas", 240));
+    private static final String CUSTOM_LABEL = Messages.get("timer.custom");
+    private static final String NO_LIMIT_LABEL = Messages.get("timer.noLimit");
+    private static final List<TimerPreset> TIMER_PRESETS = List.of(new TimerPreset(Messages.get("timer.30min"), 30),
+            new TimerPreset(Messages.get("timer.1h"), 60), new TimerPreset(Messages.get("timer.2h"), 120),
+            new TimerPreset(Messages.get("timer.4h"), 240));
 
     private MenuModel() {}
 
@@ -84,12 +85,12 @@ final class MenuModel {
         long unknown = count(snap, SessionStatus.UNKNOWN);
         menu.add(Entry.disabled(sessionsLine(working, waiting, unknown)));
         for (Session s : snap.sessions()) {
-            menu.add(Entry.disabled("    " + s.name() + " — " + statusText(s.status())));
+            menu.add(Entry.disabled("    " + Messages.format("session.row", s.name(), statusText(s.status()))));
         }
         if (controller.hasWarning()) {
             menu.add(Entry.disabled(controller.isOn()
-                    ? "No se pudo leer el estado de Claude; se mantiene activo"
-                    : "No se pudo leer el estado de Claude"));
+                    ? Messages.get("warning.unreadableActive")
+                    : Messages.get("warning.unreadable")));
         }
         if (controller.lastError() != null) {
             menu.add(Entry.disabled(controller.lastError()));
@@ -99,13 +100,13 @@ final class MenuModel {
         menu.add(timerMenu(controller, onCustomTimer));
 
         boolean autoOn = controller.isAutoOn();
-        menu.add(Entry.check("Encender cuando Claude esté trabajando", autoOn,
+        menu.add(Entry.check(Messages.get("menu.autoOn"), autoOn,
                 () -> controller.setAutoOn(!autoOn, Instant.now())));
         boolean autoOff = controller.isAutoOff();
-        menu.add(Entry.check("Apagar cuando Claude termine", autoOff,
+        menu.add(Entry.check(Messages.get("menu.autoOff"), autoOff,
                 () -> controller.setAutoOff(!autoOff, Instant.now())));
         menu.add(Entry.separator());
-        menu.add(Entry.item("Salir", onQuit));
+        menu.add(Entry.item(Messages.get("menu.quit"), onQuit));
         return menu;
     }
 
@@ -123,7 +124,7 @@ final class MenuModel {
         rows.add(Entry.check(CUSTOM_LABEL, selected != null && preset.isEmpty(), onCustomTimer));
         String current = selected == null ? NO_LIMIT_LABEL
                 : preset.map(TimerPreset::label).orElseGet(() -> formatDuration(selected));
-        return Entry.sub("Apagar tras: " + current, rows);
+        return Entry.sub(Messages.format("timer.current", current), rows);
     }
 
     static void setTimer(Controller controller, long minutes) {
@@ -136,10 +137,11 @@ final class MenuModel {
 
     static String statusLine(Controller controller, Instant now) {
         if (!controller.isOn()) {
-            return "Inactivo";
+            return Messages.get("status.inactive");
         }
         Optional<Duration> remaining = soonest(controller, now);
-        return remaining.map(d -> "Activo · apaga en " + formatDuration(d)).orElse("Activo");
+        return remaining.map(d -> Messages.format("status.activeUntil", formatDuration(d)))
+                .orElse(Messages.get("status.active"));
     }
 
     private static Optional<Duration> soonest(Controller controller, Instant now) {
@@ -168,16 +170,21 @@ final class MenuModel {
     }
 
     static String sessionsLine(long working, long waiting, long unknown) {
-        String s = "Sesiones: " + working + " trabajando, " + waiting + " en espera";
-        return unknown > 0 ? s + ", " + unknown + " desconocidas" : s;
+        return Messages.get("sessions.label") + " " + sessionCounts(working, waiting, unknown);
+    }
+
+    /** "2 working, 1 waiting", plus ", 1 unknown" when any session is unknown. */
+    static String sessionCounts(long working, long waiting, long unknown) {
+        String s = Messages.format("sessions.counts", working, waiting);
+        return unknown > 0 ? s + ", " + Messages.format("sessions.unknown", unknown) : s;
     }
 
     private static String statusText(SessionStatus st) {
         return switch (st) {
-            case WORKING -> "trabajando";
-            case BACKGROUND -> "shell en segundo plano";
-            case WAITING -> "en espera";
-            case UNKNOWN -> "desconocido";
+            case WORKING -> Messages.get("session.working");
+            case BACKGROUND -> Messages.get("session.background");
+            case WAITING -> Messages.get("session.waiting");
+            case UNKNOWN -> Messages.get("session.unknown");
         };
     }
 }

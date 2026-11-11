@@ -43,8 +43,8 @@ import javax.swing.text.DefaultEditorKit;
 final class TrayApp {
     private static final int TICK_MILLIS = 3000;
     private static final int MAX_CUSTOM_MINUTES = 10080;
-    private static final String INVALID_MINUTES = "Escribe un número entero de minutos mayor que 0";
-    private static final String TOO_LARGE_MINUTES = "El máximo es 10080 minutos (una semana)";
+    private static final String INVALID_MINUTES = Messages.get("timer.invalid");
+    private static final String TOO_LARGE_MINUTES = Messages.get("timer.tooLarge");
 
     private final Controller controller;
     private final Caffeinator caffeinator = Caffeinator.system();
@@ -77,7 +77,7 @@ final class TrayApp {
         try {
             now.save(settingsFile);
         } catch (IOException e) {
-            System.err.println("KeepAwake: no se pudieron guardar las opciones: " + e.getMessage());
+            System.err.println(Messages.format("error.settingsSave", e.getMessage()));
         }
     }
 
@@ -116,7 +116,7 @@ final class TrayApp {
 
     private void addAwtTray() throws AWTException {
         if (!SystemTray.isSupported()) {
-            throw new UnsupportedOperationException("Esta plataforma no admite icono en la barra de menús");
+            throw new UnsupportedOperationException(Messages.get("error.noTray"));
         }
         trayIcon = new TrayIcon(Icons.off(), "KeepAwake");
         trayIcon.setImageAutoSize(true);
@@ -191,8 +191,7 @@ final class TrayApp {
     static String tooltip(String statusLine, long working, long waiting, long unknown, String error) {
         StringBuilder sb = new StringBuilder(statusLine);
         if (working + waiting + unknown > 0) {
-            sb.append(" · ").append(working).append(" trabajando, ").append(waiting).append(" en espera");
-            if (unknown > 0) sb.append(", ").append(unknown).append(" desconocidas");
+            sb.append(" · ").append(MenuModel.sessionCounts(working, waiting, unknown));
         }
         if (error != null) sb.append(" · ").append(error);
         return sb.toString();
@@ -306,14 +305,14 @@ final class TrayApp {
     }
 
     private void askCustomTimer() {
-        JOptionPane pane = new JOptionPane("Minutos:", JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
+        JOptionPane pane = new JOptionPane(Messages.get("timer.prompt"), JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
         pane.setWantsInput(true);
         pane.setInitialSelectionValue("60");
         JTextField field = findTextField(pane);
         if (field != null) {
             bindSelectionKeys(field);
         }
-        showInFront(pane, "Apagar tras");
+        showInFront(pane, Messages.get("timer.title"));
         Object input = pane.getInputValue();
         if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue()) || input == null
                 || input == JOptionPane.UNINITIALIZED_VALUE) {

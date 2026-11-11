@@ -9,9 +9,9 @@ import java.util.function.Supplier;
 
 /** Keep-awake state machine: on/off, optional timer, optional auto-on and auto-off. Not thread-safe; drive from one thread. */
 public class Controller {
-    static final String ERR_DIED = "caffeinate se detuvo inesperadamente";
+    static final String ERR_DIED = Messages.get("error.caffeinateDied");
     static final Duration SLEEP_GAP = Duration.ofSeconds(30);
-    static final String ERR_START = "No se pudo iniciar caffeinate";
+    static final String ERR_START = Messages.get("error.caffeinateStart");
 
     private final Awake awake;
     private final Supplier<Snapshot> scan;

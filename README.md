@@ -29,19 +29,19 @@ Compila, copia la app a `~/Library/Application Support/KeepAwake`, la registra c
 
 - Por defecto sigue a Claude: se enciende cuando una sesión trabaja y se apaga cuando todas terminan. Las dos opciones del menú lo controlan; con ambas desactivadas, solo hace lo que pidas con un clic.
 - **Clic izquierdo**: enciende o apaga. Mientras está encendida mantiene el Mac y la pantalla despiertos, sin importar las sesiones.
-- **Clic derecho** (o Ctrl+clic): abre el menú con el estado, las sesiones, el temporizador "Apagar tras" (con una marca en la opción elegida, que también se lee en el propio menú, por ejemplo "Apagar tras: Sin límite"), las opciones "Encender cuando Claude esté trabajando" y "Apagar cuando Claude termine", y "Salir".
+- **Clic derecho** (o Ctrl+clic): abre el menú con el estado, las sesiones, el temporizador "Desactivar tras" (con una marca en la opción elegida, que también se lee en el propio menú, por ejemplo "Desactivar tras: Sin límite"), las opciones "Activar cuando Claude esté trabajando" y "Desactivar cuando Claude termine", y "Salir".
 
 Las dos opciones vienen activadas, se guardan en `~/Library/Application Support/KeepAwake/settings.properties` y se recuperan al abrir la app. El encendido y el temporizador no se guardan: la app arranca apagada, salvo que el encendido automático la encienda porque Claude ya está trabajando.
 
 ## Encendido automático
 
-Viene activado; se puede desactivar en el menú. Con "Encender cuando Claude esté trabajando" activado, la app se enciende en cuanto cualquier sesión pasa a trabajar (incluido un shell en segundo plano), y al momento si alguna ya trabajaba al activarla. Las sesiones en espera o de estado desconocido no la encienden. El icono cambia de color; no hay notificaciones.
+Viene activado; se puede desactivar en el menú. Con "Activar cuando Claude esté trabajando" activado, la app se enciende en cuanto cualquier sesión pasa a trabajar (incluido un shell en segundo plano), y al momento si alguna ya trabajaba al activarla. Las sesiones en espera o de estado desconocido no la encienden. El icono cambia de color; no hay notificaciones.
 
 Si la apagas (con un clic o por el temporizador) mientras Claude trabaja, no se vuelve a encender hasta que todas las sesiones dejen de trabajar y alguna empiece de nuevo. Desactivar la opción no apaga la app.
 
 ## Apagado automático
 
-Viene activado; se puede desactivar en el menú. Con "Apagar cuando Claude termine" activado, la app se apaga cuando todas las sesiones llevan esperándote, o ya no queda ninguna, durante 2 minutos seguidos. También se apaga así si ya estaban esperando al activarla.
+Viene activado; se puede desactivar en el menú. Con "Desactivar cuando Claude termine" activado, la app se apaga cuando todas las sesiones llevan esperándote, o ya no queda ninguna, durante 2 minutos seguidos. También se apaga así si ya estaban esperando al activarla.
 
 Para que se vuelva a encender sola cuando Claude retoma el trabajo, activa también el encendido automático; si no, haz clic otra vez. Si el Mac estuvo suspendido, la cuenta de 2 minutos empieza de nuevo al despertar.
 

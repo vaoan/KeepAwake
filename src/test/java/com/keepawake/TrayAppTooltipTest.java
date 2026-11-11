@@ -12,8 +12,8 @@ class TrayAppTooltipTest {
 
     @Test
     void appendsCounts() {
-        assertEquals("Activo · apaga en 5 min · 2 trabajando, 1 en espera",
-                TrayApp.tooltip("Activo · apaga en 5 min", 2, 1, 0, null));
+        assertEquals("Activo · se desactiva en 5 min · 2 trabajando, 1 en espera",
+                TrayApp.tooltip("Activo · se desactiva en 5 min", 2, 1, 0, null));
     }
 
     @Test
